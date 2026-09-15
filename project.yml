@@ -1,0 +1,40 @@
+name: CapPick
+options:
+  bundleIdPrefix: com.cappick
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  CapPick:
+    type: application
+    platform: iOS
+    sources:
+      - path: CapPick
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cappick.ios
+        PRODUCT_NAME: CapPick
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: CapPick
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "캡처를 분석하고 정리하려면 사진 접근 권한이 필요해요."
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_PREVIEWS: YES
+schemes:
+  CapPick:
+    build:
+      targets:
+        CapPick: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    archive:
+      config: Release
