@@ -7,35 +7,74 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00AC0301C7C1F9F3806EE7B4 /* Records.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8007F400BC8454DCC4577F1F /* Records.swift */; };
+		0F9F9868495C1F5868F4190E /* CaptureStoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD7E2FC2B1DF9E4042255FD /* CaptureStoring.swift */; };
+		11456D0579040EC2670B11F7 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 9F229887B7DFB80316BB9C45 /* GRDB */; };
 		20A7F73B6233CC654F85E184 /* ReclassificationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5888546D41DDBF76FBF8029E /* ReclassificationItem.swift */; };
 		21119972E36F921E49430F1E /* AppStateEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F828FDA21C692E44CBA4DF28 /* AppStateEntry.swift */; };
 		381F5A73F052248EADE0E3AF /* CaptureAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5899982A616A1195B74BEEAB /* CaptureAnalysis.swift */; };
+		408B13DCC60989A89FE21E8A /* PersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 009441DC6BE8A79B798464D0 /* PersistenceTests.swift */; };
 		465D64A4690DFFC70FDC8513 /* Folder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFDC1038F443AFBFFC93B1C /* Folder.swift */; };
+		4A0E6BC00BEFF9FED5E9EED8 /* FolderStoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A74CAB7FAAB7661A9F369B /* FolderStoring.swift */; };
 		5EC4A1E0BA203CD269C8EA16 /* LocalTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E128E0F0E242558FC11E9B2 /* LocalTask.swift */; };
+		6160EF3BCD8AF3CB1FBF451E /* GRDBCaptureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5CBFD4A58577A5EF91589C3 /* GRDBCaptureStore.swift */; };
+		75FF1D7E06CBE30C35AA620A /* GRDBFolderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02269DC5A390307C459A113B /* GRDBFolderStore.swift */; };
 		7AD0FBC5902AF05A50D9203E /* CapPickApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA28F169227E0B49A58DBDF8 /* CapPickApp.swift */; };
 		7E622230DE1932E8C77440B9 /* FolderCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D55CD8A55D983A80AEDD4E9 /* FolderCapture.swift */; };
 		816646D5FCE6FB052F959999 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C7BADBB2ECF9EDDB0711C9B5 /* Assets.xcassets */; };
+		90362A328B15748A3E56E865 /* AnalysisProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9439B7DDD1AE18D0A60C437 /* AnalysisProgress.swift */; };
+		AE740B3BC8EB46C8E86AFC67 /* AppDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D21442781C61BD5F12BF57 /* AppDatabase.swift */; };
 		BDCA1F6A1EB67ECC9209C9A1 /* ReclassificationRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76B3336E8D3D7BB21692644D /* ReclassificationRun.swift */; };
 		D3723AC74BDB6BC00F3A790F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE2C93F6DD2160AC47974C31 /* ContentView.swift */; };
 		EB959B94DC01A96F29805094 /* Capture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A0A6103BCE7E031786398AB /* Capture.swift */; };
 		F690D9DF708F920BCCD3A525 /* SearchDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 925D4014037ECFB19C91C3D1 /* SearchDocument.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		5FB7E2994A1A6A526C2AD220 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12FBAD780E48C9E9B6FB63A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CBE9B6289722366525F9DC41;
+			remoteInfo = CapPick;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		009441DC6BE8A79B798464D0 /* PersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceTests.swift; sourceTree = "<group>"; };
+		02269DC5A390307C459A113B /* GRDBFolderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GRDBFolderStore.swift; sourceTree = "<group>"; };
 		2E128E0F0E242558FC11E9B2 /* LocalTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTask.swift; sourceTree = "<group>"; };
+		3A6002B42FB16C763102AAB4 /* CapPickTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = CapPickTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5888546D41DDBF76FBF8029E /* ReclassificationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReclassificationItem.swift; sourceTree = "<group>"; };
 		5899982A616A1195B74BEEAB /* CaptureAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAnalysis.swift; sourceTree = "<group>"; };
 		6A0A6103BCE7E031786398AB /* Capture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Capture.swift; sourceTree = "<group>"; };
 		6D55CD8A55D983A80AEDD4E9 /* FolderCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderCapture.swift; sourceTree = "<group>"; };
+		72A74CAB7FAAB7661A9F369B /* FolderStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderStoring.swift; sourceTree = "<group>"; };
 		76B3336E8D3D7BB21692644D /* ReclassificationRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReclassificationRun.swift; sourceTree = "<group>"; };
+		8007F400BC8454DCC4577F1F /* Records.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Records.swift; sourceTree = "<group>"; };
 		8216C2C0FD4EE8ED4BD08E68 /* CapPick.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CapPick.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		925D4014037ECFB19C91C3D1 /* SearchDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchDocument.swift; sourceTree = "<group>"; };
+		9AD7E2FC2B1DF9E4042255FD /* CaptureStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureStoring.swift; sourceTree = "<group>"; };
 		9FFDC1038F443AFBFFC93B1C /* Folder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Folder.swift; sourceTree = "<group>"; };
+		A7D21442781C61BD5F12BF57 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDatabase.swift; sourceTree = "<group>"; };
+		A9439B7DDD1AE18D0A60C437 /* AnalysisProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisProgress.swift; sourceTree = "<group>"; };
 		BA28F169227E0B49A58DBDF8 /* CapPickApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapPickApp.swift; sourceTree = "<group>"; };
 		C7BADBB2ECF9EDDB0711C9B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F5CBFD4A58577A5EF91589C3 /* GRDBCaptureStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GRDBCaptureStore.swift; sourceTree = "<group>"; };
 		F828FDA21C692E44CBA4DF28 /* AppStateEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateEntry.swift; sourceTree = "<group>"; };
 		FE2C93F6DD2160AC47974C31 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4F792BE8F425E6F4DA3B4EEC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11456D0579040EC2670B11F7 /* GRDB in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		109C764D7233289940F66DAD /* App */ = {
@@ -58,13 +97,23 @@
 			isa = PBXGroup;
 			children = (
 				A1EA2628FB7179D1E04FD420 /* CapPick */,
+				33D44BC25A92075A62F16246 /* CapPickTests */,
 				A242F9E1B8721B693FE2BA55 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		33D44BC25A92075A62F16246 /* CapPickTests */ = {
+			isa = PBXGroup;
+			children = (
+				009441DC6BE8A79B798464D0 /* PersistenceTests.swift */,
+			);
+			path = CapPickTests;
 			sourceTree = "<group>";
 		};
 		3DCCB85AC000C575248A646C /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A9439B7DDD1AE18D0A60C437 /* AnalysisProgress.swift */,
 				F828FDA21C692E44CBA4DF28 /* AppStateEntry.swift */,
 				6A0A6103BCE7E031786398AB /* Capture.swift */,
 				5899982A616A1195B74BEEAB /* CaptureAnalysis.swift */,
@@ -85,6 +134,7 @@
 				109C764D7233289940F66DAD /* App */,
 				2CE7A1281BC3559AC640D84B /* Features */,
 				3DCCB85AC000C575248A646C /* Models */,
+				A8B6EBBDF990B0027B6E5A07 /* Persistence */,
 			);
 			path = CapPick;
 			sourceTree = "<group>";
@@ -93,19 +143,52 @@
 			isa = PBXGroup;
 			children = (
 				8216C2C0FD4EE8ED4BD08E68 /* CapPick.app */,
+				3A6002B42FB16C763102AAB4 /* CapPickTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A8B6EBBDF990B0027B6E5A07 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				A7D21442781C61BD5F12BF57 /* AppDatabase.swift */,
+				9AD7E2FC2B1DF9E4042255FD /* CaptureStoring.swift */,
+				72A74CAB7FAAB7661A9F369B /* FolderStoring.swift */,
+				F5CBFD4A58577A5EF91589C3 /* GRDBCaptureStore.swift */,
+				02269DC5A390307C459A113B /* GRDBFolderStore.swift */,
+				8007F400BC8454DCC4577F1F /* Records.swift */,
+			);
+			path = Persistence;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		56FDA5284AF820692E2D1ECE /* CapPickTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2437CF85B7D553016002346A /* Build configuration list for PBXNativeTarget "CapPickTests" */;
+			buildPhases = (
+				83F389DF869C566E0B90F0E7 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DC924FB88EA12A2DFFB04C67 /* PBXTargetDependency */,
+			);
+			name = CapPickTests;
+			packageProductDependencies = (
+			);
+			productName = CapPickTests;
+			productReference = 3A6002B42FB16C763102AAB4 /* CapPickTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		CBE9B6289722366525F9DC41 /* CapPick */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 09A7E27BB64F36653D455A3D /* Build configuration list for PBXNativeTarget "CapPick" */;
 			buildPhases = (
 				25C905D748CA0CE15EC6CBB2 /* Sources */,
 				8BA397907B8CF118286C246E /* Resources */,
+				4F792BE8F425E6F4DA3B4EEC /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -113,6 +196,7 @@
 			);
 			name = CapPick;
 			packageProductDependencies = (
+				9F229887B7DFB80316BB9C45 /* GRDB */,
 			);
 			productName = CapPick;
 			productReference = 8216C2C0FD4EE8ED4BD08E68 /* CapPick.app */;
@@ -138,12 +222,16 @@
 			);
 			mainGroup = 2DC886CC60BA20ED1A96556F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2DCDE8BD788F1BC2D7A7604D /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A242F9E1B8721B693FE2BA55 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				CBE9B6289722366525F9DC41 /* CapPick */,
+				56FDA5284AF820692E2D1ECE /* CapPickTests */,
 			);
 		};
 /* End PBXProject section */
@@ -164,21 +252,44 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90362A328B15748A3E56E865 /* AnalysisProgress.swift in Sources */,
+				AE740B3BC8EB46C8E86AFC67 /* AppDatabase.swift in Sources */,
 				21119972E36F921E49430F1E /* AppStateEntry.swift in Sources */,
 				7AD0FBC5902AF05A50D9203E /* CapPickApp.swift in Sources */,
 				EB959B94DC01A96F29805094 /* Capture.swift in Sources */,
 				381F5A73F052248EADE0E3AF /* CaptureAnalysis.swift in Sources */,
+				0F9F9868495C1F5868F4190E /* CaptureStoring.swift in Sources */,
 				D3723AC74BDB6BC00F3A790F /* ContentView.swift in Sources */,
 				465D64A4690DFFC70FDC8513 /* Folder.swift in Sources */,
 				7E622230DE1932E8C77440B9 /* FolderCapture.swift in Sources */,
+				4A0E6BC00BEFF9FED5E9EED8 /* FolderStoring.swift in Sources */,
+				6160EF3BCD8AF3CB1FBF451E /* GRDBCaptureStore.swift in Sources */,
+				75FF1D7E06CBE30C35AA620A /* GRDBFolderStore.swift in Sources */,
 				5EC4A1E0BA203CD269C8EA16 /* LocalTask.swift in Sources */,
 				20A7F73B6233CC654F85E184 /* ReclassificationItem.swift in Sources */,
 				BDCA1F6A1EB67ECC9209C9A1 /* ReclassificationRun.swift in Sources */,
+				00AC0301C7C1F9F3806EE7B4 /* Records.swift in Sources */,
 				F690D9DF708F920BCCD3A525 /* SearchDocument.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		83F389DF869C566E0B90F0E7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				408B13DCC60989A89FE21E8A /* PersistenceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DC924FB88EA12A2DFFB04C67 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CBE9B6289722366525F9DC41 /* CapPick */;
+			targetProxy = 5FB7E2994A1A6A526C2AD220 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		00912974FB223AA43F4B33B9 /* Debug */ = {
@@ -201,6 +312,23 @@
 				PRODUCT_NAME = CapPick;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		09CB7DDE1C00EFC44D35BB3E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cappick.ios.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CapPick.app/CapPick";
 			};
 			name = Debug;
 		};
@@ -350,6 +478,23 @@
 			};
 			name = Release;
 		};
+		FC28E38EE425DB683EDE1232 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cappick.ios.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CapPick.app/CapPick";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -358,6 +503,15 @@
 			buildConfigurations = (
 				00912974FB223AA43F4B33B9 /* Debug */,
 				7D4C454745F3E430E66F0F71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		2437CF85B7D553016002346A /* Build configuration list for PBXNativeTarget "CapPickTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				09CB7DDE1C00EFC44D35BB3E /* Debug */,
+				FC28E38EE425DB683EDE1232 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -372,6 +526,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2DCDE8BD788F1BC2D7A7604D /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9F229887B7DFB80316BB9C45 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2DCDE8BD788F1BC2D7A7604D /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 12FBAD780E48C9E9B6FB63A1 /* Project object */;
 }

@@ -1,6 +1,6 @@
 // ERD v0.2 §2 Folder. display_name(표시 이름)과 criteria_text(분류 기준)는 별도로 관리한다 —
 // 이름만 바꿔도 criteria_version이 올라가지 않는다 (기능명세서 §3.3.2).
-struct Folder: Identifiable, Equatable {
+struct Folder: Identifiable, Equatable, Codable {
     let id: String
     var displayName: String
     var criteriaText: String?

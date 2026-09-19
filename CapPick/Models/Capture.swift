@@ -1,7 +1,7 @@
 import Foundation
 
 // ERD v0.2 §2 Capture, §3 상태 규칙 기준.
-struct Capture: Identifiable, Equatable {
+struct Capture: Identifiable, Equatable, Codable {
     let id: String
     let photoAssetID: String
     let capturedAt: Date

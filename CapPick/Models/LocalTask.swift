@@ -2,7 +2,7 @@ import Foundation
 
 // ERD v0.2 §2·§3 LocalTask. 서버 제출 전부터 기록하는 단계별 처리·복구 기록.
 // idempotencyKey는 같은 논리 작업을 재개할 때 동일하게 유지한다.
-struct LocalTask: Identifiable, Equatable {
+struct LocalTask: Identifiable, Equatable, Codable {
     let id: String
     var captureID: String?
     var folderID: String?

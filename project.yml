@@ -9,12 +9,18 @@ settings:
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: 7.0.0
 targets:
   CapPick:
     type: application
     platform: iOS
     sources:
       - path: CapPick
+    dependencies:
+      - package: GRDB
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cappick.ios
@@ -27,6 +33,17 @@ targets:
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "캡처를 분석하고 정리하려면 사진 접근 권한이 필요해요."
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
+  CapPickTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CapPickTests
+    dependencies:
+      - target: CapPick
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cappick.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   CapPick:
     build:
@@ -36,5 +53,7 @@ schemes:
       config: Debug
     test:
       config: Debug
+      targets:
+        - CapPickTests
     archive:
       config: Release
