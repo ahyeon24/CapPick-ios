@@ -13,4 +13,10 @@ protocol CaptureStoring: Sendable {
     func fetch(in folder: Folder) async throws -> [Capture]
 
     func currentProgress() async throws -> AnalysisProgress
+
+    /// 사진 보관함에서 발견한 스크린샷을 로컬 목록에 맞춘다 (기능명세서 PHOTO-04·PHOTO-06).
+    /// 새 자산은 분석 대기(pending) 상태로 등록하고, 같은 자산은 다시 등록하지 않는다.
+    /// 이번 목록에 없는 기존 캡처는 접근 불가(unavailable)로 표시하고, 다시 나타나면 접근 가능으로 되돌린다.
+    /// 캡픽에서 제외한 캡처도 기록이 남아 있으므로 다시 등록되지 않는다.
+    func registerDiscovered(_ screenshots: [DiscoveredScreenshot]) async throws -> ScreenshotSyncResult
 }

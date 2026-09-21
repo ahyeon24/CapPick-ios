@@ -4,7 +4,16 @@ CapPick의 iOS 앱(SwiftUI). 제품 배경·기능 사양은 `../CLAUDE.md`와 `
 
 ## 현재 상태
 
-XcodeGen 스캐폴딩 + `Models/`에 ERD v0.2 §2 로컬 엔터티를 그대로 옮긴 Swift 값 타입(Capture, CaptureAnalysis, SearchDocument, Folder, FolderCapture, LocalTask, ReclassificationRun, ReclassificationItem, AppStateEntry)까지 있다. `Persistence/`에는 GRDB(SQLite) 기반 로컬 DB와 `CaptureStoring`/`FolderStoring` store가 구현돼 있고 `CapPickTests/PersistenceTests.swift`(18개)로 ERD §3 규칙을 검증한다. `Features/`, `Networking/`, `Services/`는 아직 빈 폴더다. 화면설계서(`../docs/cappick-screen-spec-v0.8.md`)의 ON-01부터 View/ViewModel 구현을 시작하면 된다.
+XcodeGen 스캐폴딩 + `Models/`에 ERD v0.2 §2 로컬 엔터티를 그대로 옮긴 Swift 값 타입(Capture, CaptureAnalysis, SearchDocument, Folder, FolderCapture, LocalTask, ReclassificationRun, ReclassificationItem, AppStateEntry)까지 있다. `Persistence/`에는 GRDB(SQLite) 기반 로컬 DB와 `CaptureStoring`/`FolderStoring`/`AppStateStoring` store가 구현돼 있다.
+
+첫 기능 조각으로 **사진 접근 → 스크린샷 발견 → 로컬 DB 등록**이 구현돼 있다(기능명세서 PHOTO-01~04·06, 화면설계서 ON-01~03, HOME-01 일부).
+- `Services/ScreenshotLibrary`(사진 보관함 경계 프로토콜), `PhotosScreenshotLibrary`(Photos 프레임워크 구현), `ScreenshotSyncService`(발견한 스크린샷을 로컬 목록에 맞춤)
+- `Features/Onboarding`(ON-01 시작 → ON-02 사진 접근 → ON-03 분석 시작), `Features/Home`(스크린샷 수·분석 진행만 보여주는 최소 홈)
+- `App/AppEnvironment`(저장소·서비스 조립), `App/RootView`(온보딩 완료 여부로 화면 결정), 앱 복귀 시 새 스크린샷 재확인
+
+**아직 없는 것**: AI 분석·검색·폴더 화면·서버 통신(`Networking/`). ON-03의 "전체 캡처 분석 시작"은 지금은 `AppState`의 `analysisStartRequested`에 사용자 의사만 기록하고 등록된 캡처는 분석 대기(pending)로 남는다. 실제 분석 요청은 서버·AI 공급자 연동 후 붙인다. ON-03의 AI 처리 안내 문구는 임시이며 공급자 선정 후 확정해야 한다.
+
+`CapPickTests/`에 테스트 34개(Persistence 18, 스크린샷 동기화 7, 온보딩·홈 ViewModel 9)가 있다. 화면설계서(`../docs/cappick-screen-spec-v0.8.md`)의 HOME-01 나머지, BROWSE-01 등을 이어서 구현하면 된다.
 
 `Models/`의 일부 상태값(`SearchDocument.state`, `Folder.criteriaState`의 일부, `ReclassificationRun.state`, `ReclassificationItem.state`)은 ERD에 전체 값 집합이 명시돼 있지 않다 — 각 파일 주석에 근거와 "확정 전" 표시를 남겨뒀다. 서버 쪽 계약이 구체화되면 이 모델들도 같이 업데이트해야 한다.
 
@@ -31,7 +40,7 @@ CapPick/
 └── Services/       — 화면에 안 묶인 도메인 로직 (분류 규칙, 검색 결합 등)
 ```
 
-지금은 `Features/*`, `Networking/`, `Services/`가 빈 폴더다. XcodeGen은 파일이 있는 폴더만 프로젝트에 반영하므로, 폴더 안에 첫 파일을 추가한 뒤 `xcodegen generate`를 다시 돌려야 Xcode 네비게이터에 보인다. 테스트는 `CapPickTests/`(별도 타깃, `project.yml`에 정의)에 둔다.
+지금은 `Features/Onboarding`, `Features/Home`, `Services/`만 채워져 있고 나머지 `Features/*`, `Networking/`는 빈 폴더다. XcodeGen은 파일이 있는 폴더만 프로젝트에 반영하므로, 폴더 안에 첫 파일을 추가한 뒤 `xcodegen generate`를 다시 돌려야 Xcode 네비게이터에 보인다. 테스트는 `CapPickTests/`(별도 타깃, `project.yml`에 정의)에 둔다.
 
 ## 코딩 컨벤션
 
@@ -111,12 +120,14 @@ protocol CaptureStoring: Sendable {
     func fetchUnclassified() async throws -> [Capture]   // ERD §3 미분류 조회 규칙을 여기서 한 번만 구현
     func fetch(in folder: Folder) async throws -> [Capture]
     func currentProgress() async throws -> AnalysisProgress
+    func registerDiscovered(_ screenshots: [DiscoveredScreenshot]) async throws -> ScreenshotSyncResult
+    // 새 자산은 pending으로 등록, 같은 자산은 재등록 안 함, 목록에서 사라지면 unavailable, 제외한 캡처는 되살리지 않음
 }
 ```
 
 호출하는 쪽(ViewModel)은 필터 조건을 다시 조립하지 않고 `fetchUnclassified()`만 부른다. 폴더 소속 규칙(ERD §3 표)도 마찬가지로 `FolderStoring` 안에 있다: `addManually`(present+manual, 차단 해제), `removeManually`(blocked+manual), `applyAutoMatch`(사용자가 직접 추가·제거한 관계, 기준 버전이 바뀐 늦은 결과, 접근 불가·제외 캡처는 반영하지 않고 이유를 `AutoMatchResult`로 돌려준다). 소속이 바뀔 때마다 폴더의 `membershipRevision`이 올라간다.
 
-구현체는 `GRDBCaptureStore`, `GRDBFolderStore`이고 `AppDatabase`(`makeOnDisk()` / 테스트용 `makeInMemory()`)를 받는다. 앱 시작 시 `AppDatabase.makeOnDisk()`를 한 번 만들어 store에 주입한다 — 아직 이 연결 코드는 없다(화면 구현 시 추가).
+구현체는 `GRDBCaptureStore`, `GRDBFolderStore`이고 `AppDatabase`(`makeOnDisk()` / 테스트용 `makeInMemory()`)를 받는다. 앱 시작 시 `App/AppEnvironment.live()`가 `AppDatabase.makeOnDisk()`를 한 번 만들어 store·서비스에 주입하고, 화면(ViewModel)은 그걸 받아 쓴다.
 
 ### 4. 로컬 DB — GRDB(SQLite), 컬럼 이름은 Swift 프로퍼티 그대로
 
@@ -137,13 +148,16 @@ protocol CaptureStoring: Sendable {
 # project.yml을 바꾼 뒤 .xcodeproj 재생성
 xcodegen generate
 
-# 시뮬레이터로 빌드 (실제 기기/시뮬레이터 런타임이 설치돼 있어야 함)
-xcodebuild -project CapPick.xcodeproj -scheme CapPick -sdk iphonesimulator build
+# 시뮬레이터에서 테스트 (iOS 26.3 런타임, iPhone 17 Pro 기준. `xcrun simctl list devices`로 id 확인)
+xcodebuild test -project CapPick.xcodeproj -scheme CapPick \
+  -destination 'platform=iOS Simulator,id=<기기 id>'
 ```
 
-빌드·실행·테스트는 Xcode.app에서 직접 여는 것을 권장한다(`open CapPick.xcodeproj`, 테스트는 `Cmd+U`). 이 세션의 CLI 환경에는 iOS 시뮬레이터 런타임이 설치돼 있지 않아 `xcodebuild`로 iOS 빌드·테스트는 못 돌렸다.
+빌드·실행·테스트는 Xcode.app에서 직접 여는 것도 된다(`open CapPick.xcodeproj`, 테스트는 `Cmd+U`).
 
-대신 Persistence 코드는 iOS API를 쓰지 않는 순수 Swift라, `Models/`·`Persistence/`·`CapPickTests/`를 macOS용 임시 SwiftPM 패키지(target 이름 `CapPick`, GRDB 의존성, Swift 6 모드)에 복사해서 `swift test`로 18개 테스트를 통과시켰다. 이 검증은 macOS 기준이라 iOS 시뮬레이터에서의 실행은 Xcode에서 한 번 확인해야 한다.
+**검증 이력 (2026-09-19)**: iOS 시뮬레이터 런타임 설치 후 `xcodebuild test`로 테스트 34개(Persistence 18, 스크린샷 동기화 7, 온보딩·홈 ViewModel 9) 전부 통과했다. 앱을 시뮬레이터에 설치·실행해 ON-01 화면이 뜨고 `cappick.sqlite`에 테이블 9개가 생성되는 것까지 확인했다.
+
+**아직 확인 안 한 것**: 화면을 눌러가며 하는 흐름(사진 권한 창, ON-02→ON-03 이동, 스크린샷 개수 표시). 시뮬레이터 사진 보관함에는 스크린샷이 없어서 스크린샷 발견은 스크린샷이 있는 실기기 아이폰에서 확인해야 한다. CLI에서는 화면을 탭할 수 없어 UI 테스트도 아직 없다.
 
 ## 현재 설정값 (모두 잠정치, 필요 시 `project.yml`에서 수정)
 

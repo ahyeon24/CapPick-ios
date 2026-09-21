@@ -1,7 +1,14 @@
+import Foundation
 import GRDB
 
 struct GRDBCaptureStore: CaptureStoring {
     let database: AppDatabase
+    private let makeID: @Sendable () -> String
+
+    init(database: AppDatabase, makeID: @escaping @Sendable () -> String = { UUID().uuidString }) {
+        self.database = database
+        self.makeID = makeID
+    }
 
     private static let visible = "capture.availability = 'accessible' AND capture.excludedAt IS NULL"
 
@@ -47,6 +54,66 @@ struct GRDBCaptureStore: CaptureStoring {
                   AND \(Self.visible)
                 ORDER BY capture.capturedAt DESC
                 """, arguments: [folderID])
+        }
+    }
+
+    func registerDiscovered(_ screenshots: [DiscoveredScreenshot]) async throws -> ScreenshotSyncResult {
+        let makeID = self.makeID
+        return try await database.dbWriter.write { db in
+            var known: [String: CaptureAvailability] = [:]
+            for row in try Row.fetchAll(db, sql: "SELECT photoAssetID, availability FROM capture") {
+                let assetID: String = row["photoAssetID"]
+                let raw: String = row["availability"]
+                known[assetID] = CaptureAvailability(rawValue: raw)
+            }
+
+            var registered = 0
+            var restored = 0
+            for shot in screenshots {
+                switch known[shot.assetID] {
+                case nil:
+                    try Capture(
+                        id: makeID(),
+                        photoAssetID: shot.assetID,
+                        capturedAt: shot.capturedAt,
+                        width: shot.width,
+                        height: shot.height,
+                        availability: .accessible,
+                        excludedAt: nil,
+                        favorite: false,
+                        contentRevision: 1,
+                        searchState: .pending,
+                        classificationState: .pending
+                    ).insert(db)
+                    known[shot.assetID] = .accessible
+                    registered += 1
+                case .unavailable?:
+                    try db.execute(
+                        sql: "UPDATE capture SET availability = 'accessible' WHERE photoAssetID = ?",
+                        arguments: [shot.assetID]
+                    )
+                    known[shot.assetID] = .accessible
+                    restored += 1
+                case .accessible?:
+                    break
+                }
+            }
+
+            let discovered = Set(screenshots.map(\.assetID))
+            var becameUnavailable = 0
+            for (assetID, availability) in known where availability == .accessible && !discovered.contains(assetID) {
+                try db.execute(
+                    sql: "UPDATE capture SET availability = 'unavailable' WHERE photoAssetID = ?",
+                    arguments: [assetID]
+                )
+                becameUnavailable += 1
+            }
+
+            return ScreenshotSyncResult(
+                registered: registered,
+                restored: restored,
+                becameUnavailable: becameUnavailable
+            )
         }
     }
 
