@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class BrowseViewModelTests: XCTestCase {
 
-    private func makeContentAnalysisService(captureStore: GRDBCaptureStore) throws -> ContentAnalysisService {
+    private func makeAnalysisQueueService(captureStore: GRDBCaptureStore, database: AppDatabase) throws -> AnalysisQueueService {
         let credentialStore = InMemoryCredentialStore()
         try credentialStore.save("existing-credential")
         let registrar = InstallationRegistrar(
@@ -12,14 +12,19 @@ final class BrowseViewModelTests: XCTestCase {
             attestationProvider: FakeAttestationProvider(),
             credentialStore: credentialStore
         )
-        return ContentAnalysisService(
+        let contentAnalysisService = ContentAnalysisService(
             jobAPIClient: FakeJobAPIClient(), installationRegistrar: registrar,
             captureStore: captureStore, imageProvider: FakeCaptureImageProviding()
+        )
+        return AnalysisQueueService(
+            captureStore: captureStore, contentAnalysisService: contentAnalysisService,
+            appStateStore: GRDBAppStateStore(database: database)
         )
     }
 
     func testLoadShowsAllVisibleCapturesNewestFirst() async throws {
-        let store = GRDBCaptureStore(database: try AppDatabase.makeInMemory())
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
         try await store.save(Capture(
             id: "old", photoAssetID: "a", capturedAt: Date(timeIntervalSince1970: 1_000),
             width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
@@ -30,7 +35,8 @@ final class BrowseViewModelTests: XCTestCase {
             width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
             contentRevision: 1, searchState: .ready, classificationState: .complete
         ))
-        let viewModel = BrowseViewModel(captureStore: store, contentAnalysisService: try makeContentAnalysisService(captureStore: store))
+        let viewModel = BrowseViewModel(
+            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database))
 
         await viewModel.load()
 
@@ -40,8 +46,10 @@ final class BrowseViewModelTests: XCTestCase {
     }
 
     func testLoadWithNoCapturesLeavesEmptyListWithoutError() async throws {
-        let store = GRDBCaptureStore(database: try AppDatabase.makeInMemory())
-        let viewModel = BrowseViewModel(captureStore: store, contentAnalysisService: try makeContentAnalysisService(captureStore: store))
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        let viewModel = BrowseViewModel(
+            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database))
 
         await viewModel.load()
 
@@ -49,19 +57,22 @@ final class BrowseViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.errorMessage)
     }
 
-    func testAnalyzeReloadsCapturesSoBadgeReflectsReadyState() async throws {
-        let store = GRDBCaptureStore(database: try AppDatabase.makeInMemory())
+    func testRetryReloadsCapturesSoBadgeReflectsReadyState() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        // pending은 자동 큐가 처리하므로 Browse의 수동 재시도는 failed에서만 의미가 있다.
         let capture = Capture(
             id: "c1", photoAssetID: "a", capturedAt: Date(timeIntervalSince1970: 1_000),
             width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
-            contentRevision: 1, searchState: .pending, classificationState: .pending
+            contentRevision: 1, searchState: .failed, classificationState: .pending
         )
         try await store.save(capture)
-        let viewModel = BrowseViewModel(captureStore: store, contentAnalysisService: try makeContentAnalysisService(captureStore: store))
+        let viewModel = BrowseViewModel(
+            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database))
         await viewModel.load()
-        XCTAssertEqual(viewModel.captures.first?.searchState, .pending)
+        XCTAssertEqual(viewModel.captures.first?.searchState, .failed)
 
-        await viewModel.analyze(capture)
+        await viewModel.retry(capture)
 
         XCTAssertEqual(viewModel.captures.first?.searchState, .ready)
         XCTAssertTrue(viewModel.analyzingCaptureIDs.isEmpty, "완료 후엔 분석 중 표시가 남지 않아야 한다")

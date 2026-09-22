@@ -26,7 +26,7 @@ struct BrowseView: View {
                             capture: capture,
                             thumbnailLoader: thumbnailLoader,
                             isAnalyzing: viewModel.analyzingCaptureIDs.contains(capture.id),
-                            onAnalyzeTapped: { Task { await viewModel.analyze(capture) } }
+                            onRetryTapped: { Task { await viewModel.retry(capture) } }
                         )
                     }
                 }
@@ -36,6 +36,9 @@ struct BrowseView: View {
             }
         }
         .navigationTitle("전체")
-        .task { await viewModel.load() }
+        .task {
+            await viewModel.load()
+            await viewModel.observeQueueUntilIdle()
+        }
     }
 }

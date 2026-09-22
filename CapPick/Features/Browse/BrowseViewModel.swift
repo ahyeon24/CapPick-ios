@@ -11,11 +11,11 @@ final class BrowseViewModel {
     private(set) var analyzingCaptureIDs: Set<String> = []
 
     private let captureStore: any CaptureStoring
-    private let contentAnalysisService: ContentAnalysisService
+    private let analysisQueueService: AnalysisQueueService
 
-    init(captureStore: any CaptureStoring, contentAnalysisService: ContentAnalysisService) {
+    init(captureStore: any CaptureStoring, analysisQueueService: AnalysisQueueService) {
         self.captureStore = captureStore
-        self.contentAnalysisService = contentAnalysisService
+        self.analysisQueueService = analysisQueueService
     }
 
     func load() async {
@@ -29,18 +29,28 @@ final class BrowseViewModel {
         }
     }
 
-    /// 캡처 한 장을 서버로 보내 분석한다. 아직 DETAIL-01(캡처 상세) 화면이 없어서 그리드에서
-    /// 바로 트리거하는 임시 진입점이다 — 화면설계서상 원래 자리는 아니다.
-    func analyze(_ capture: Capture) async {
+    /// pending 캡처는 자동 큐가 처리하므로, 여기서는 실패(failed)한 캡처를 사용자가 직접
+    /// 재시도할 때만 쓴다(DETAIL-01이 생기면 옮길 자리 — 화면설계서상 원래 위치는 아니다).
+    func retry(_ capture: Capture) async {
         guard !analyzingCaptureIDs.contains(capture.id) else { return }
         analyzingCaptureIDs.insert(capture.id)
         defer { analyzingCaptureIDs.remove(capture.id) }
         errorMessage = nil
         do {
-            try await contentAnalysisService.analyze(capture)
+            try await analysisQueueService.retry(capture)
             await load()
         } catch {
             errorMessage = "분석에 실패했어요: \(error)"
+        }
+    }
+
+    /// 큐가 백그라운드에서 pending 캡처들을 처리하는 동안 그리드도 같이 갱신되도록 진행 중엔
+    /// 주기적으로 다시 불러온다. HomeViewModel.observeQueueUntilIdle과 같은 이유로 actor의
+    /// isRunning을 직접 관찰하지 않고, 관찰 가능한 진행률로 종료를 판단한다.
+    func observeQueueUntilIdle() async {
+        while let progress = try? await captureStore.currentProgress(), progress.searchPending > 0 {
+            try? await Task.sleep(for: .seconds(2))
+            await load()
         }
     }
 }

@@ -15,7 +15,30 @@ XcodeGen 스캐폴딩 + `Models/`에 ERD v0.2 §2 로컬 엔터티를 그대로 
 
 **BROWSE-01의 "빈 검색어" 흐름도 있다** — 검색·폴더 없이 접근 가능한 캡처 전체를 최근순 2열 그리드로 보여준다(`Features/Browse`). 미분석(pending) 캡처도 함께 보인다(SEARCH-06). 썸네일은 `Services/ThumbnailLoading`(`PhotosThumbnailLoader`)이 `PHImageManager`로 가져온다. 지금은 정사각형 균일 그리드다 — 화면설계서가 요구하는 "이미지 비율에 따라 높이가 다른" masonry 배치는 다음 단계다(각 셀 코드에 명시해둠). `HomeView`에 "전체 보기" 버튼으로 진입한다.
 
-**아직 없는 것**: AI 분석·검색·폴더 화면(FOLDER-*, DETAIL-*), Job 관련 API 클라이언트, masonry 그리드. ON-03의 "전체 캡처 분석 시작"은 지금은 `AppState`의 `analysisStartRequested`에 사용자 의사만 기록하고 등록된 캡처는 분석 대기(pending)로 남는다. 실제 분석 요청은 서버에 Job 도메인이 생기고 AI 공급자가 정해진 뒤 붙인다. ON-03의 AI 처리 안내 문구는 임시이며 공급자 선정 후 확정해야 한다.
+**AI 분석 자동 큐가 붙어있다.** `Networking/JobAPIClient`(서버 `/v1/jobs` 제출·폴링)와
+`Services/ContentAnalysisService`(캡처 한 장을 제출→폴링→로컬 저장, `Services/PhotosImageDataProvider`로
+업로드용 JPEG 생성)가 한 장 처리를 담당하고, 그 위의 `Services/AnalysisQueueService`(actor)가
+ON-03에서 동의한 뒤 pending 캡처를 **최근 것부터 순서대로 자동** 처리한다(AI-04/05/06) —
+`HomeViewModel.refresh()`가 Home이 보일 때마다 깨우고(`resumeIfNeeded()`, 중복 실행 방지 내장),
+진행률(`AnalysisProgress.searchPending`)이 0이 될 때까지 2초 간격으로 갱신한다. 재개는 새 상태 없이
+`Capture.searchState`(pending/processing/ready/failed)만으로 이뤄진다 — 앱이 중간에 꺼져도
+`resetStuckProcessing()`이 processing을 pending으로 되돌려 다음 실행에서 이어간다. 무한 재시도는
+안 한다: 실패하면 failed로 남고 큐는 다음 캡처로 넘어간다. Browse 그리드의 ✨ 버튼은 이제 pending용이
+아니라 **failed 캡처를 사용자가 직접 재시도**하는 용도(`arrow.clockwise` 아이콘)로 좁혀졌고
+`BrowseViewModel`도 같은 방식으로 큐 진행을 폴링해 배지를 갱신한다.
+
+**아직 없는 것**: AI 검색·폴더 화면(FOLDER-*, DETAIL-*), masonry 그리드, 앱이 완전히 백그라운드로
+전환됐을 때도 도는 진짜 백그라운드 처리(BGProcessingTask) — 지금은 포그라운드에서만 순차 처리하고
+멈추면 다음 포그라운드 진입 시 이어간다. 실패 이유를 "사진 접근/네트워크/사용량 한도"처럼 세분화해
+보여주는 것(AI-06)도 아직이다 — 지금은 실패했다는 사실과 재시도 버튼만 있다. ON-03의 AI 처리 안내
+문구는 임시이며 공급자 선정 후 확정해야 한다.
+
+**검증 이력 (2026-09-22, 자동 큐 추가 후)**: 테스트 72개(신규 `AnalysisQueueServiceTests` 6개,
+`PersistenceTests`에 큐 저장소 메서드 4개, `CaptureStoring` 프로토콜에 4개 메서드 추가) 전부 통과.
+시뮬레이터에서 실제로 **온보딩 완료 후 앱을 열기만 했는데 탭 없이 캡처 3장이 자동으로 순서대로
+처리되는 것까지 확인했다** — 로컬 DB를 직접 조회해 `processing → failed → (다음 캡처) processing`
+순서로 넘어가는 걸 봤다(오늘 Gemini 무료 한도가 소진돼 있어서 셋 다 결국 `failed`로 끝났지만, 이건
+외부 API 한도 문제고 큐 자체의 순차 진행·실패 시 다음으로 넘어가는 동작은 의도대로였다).
 
 `CapPickTests/`에 테스트 53개(Persistence 18, 스크린샷 동기화 7, 온보딩·홈 ViewModel 9, 설치 자격 관련 12, API 클라이언트 5, Browse 2)가 있다. 화면설계서(`../docs/cappick-screen-spec-v0.8.md`)의 HOME-01 나머지, FOLDER-* 등을 이어서 구현하면 된다.
 

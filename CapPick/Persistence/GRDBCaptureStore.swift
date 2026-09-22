@@ -128,6 +128,36 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
+    func nextPendingForAnalysis() async throws -> Capture? {
+        try await database.dbWriter.read { db in
+            try Capture.fetchOne(db, sql: """
+                SELECT * FROM capture
+                WHERE \(Self.visible)
+                  AND capture.searchState = 'pending'
+                ORDER BY capturedAt DESC
+                LIMIT 1
+                """)
+        }
+    }
+
+    func markSearchProcessing(_ captureID: String) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET searchState = 'processing' WHERE id = ?", arguments: [captureID])
+        }
+    }
+
+    func markSearchFailed(_ captureID: String) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET searchState = 'failed' WHERE id = ?", arguments: [captureID])
+        }
+    }
+
+    func resetStuckProcessing() async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET searchState = 'pending' WHERE searchState = 'processing'")
+        }
+    }
+
     func currentProgress() async throws -> AnalysisProgress {
         try await database.dbWriter.read { db in
             let row = try Row.fetchOne(db, sql: """

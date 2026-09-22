@@ -6,8 +6,10 @@ import SwiftUI
 struct CaptureThumbnailView: View {
     let capture: Capture
     let thumbnailLoader: any ThumbnailLoading
+    /// 사용자가 방금 재시도 버튼을 눌러 지금 이 화면에서 진행 중인 요청. capture.searchState ==
+    /// .processing(큐가 백그라운드에서 처리 중)과는 별개 — 둘 다 스피너로 보여준다.
     let isAnalyzing: Bool
-    let onAnalyzeTapped: () -> Void
+    let onRetryTapped: () -> Void
 
     @State private var image: UIImage?
 
@@ -32,27 +34,35 @@ struct CaptureThumbnailView: View {
             }
     }
 
-    // 임시 UI — DETAIL-01(캡처 상세)이 생기면 "분석" 버튼은 거기로 옮기고 여긴 상태 배지만 남긴다.
-    // 밝은 스크린샷 위에서도 보이도록 아이콘 뒤에 어두운 원형 배경을 깐다 — 배경 없이 흰 아이콘만
-    // 쓰면 밝은 이미지에 묻혀 버튼이 있는지조차 안 보이는 문제가 있었다.
+    // 상태별 배지 — 임시 UI (DETAIL-01이 생기면 재시도는 거기로 옮긴다). pending은 큐가 알아서
+    // 처리하므로 배지를 아예 안 띄운다(사용자 액션을 유도하지 않음). 밝은 스크린샷 위에서도
+    // 보이도록 아이콘 뒤에 어두운 원형 배경을 깐다 — 배경 없이 흰 아이콘만 쓰면 밝은 이미지에
+    // 묻혀 버튼이 있는지조차 안 보이는 문제가 있었다.
     @ViewBuilder
     private var analysisBadge: some View {
-        Group {
-            if isAnalyzing {
-                ProgressView().tint(.white)
-            } else if capture.searchState == .ready {
+        if isAnalyzing || capture.searchState == .processing {
+            badge { ProgressView().tint(.white) }
+        } else if capture.searchState == .ready {
+            badge {
                 Image(systemName: "checkmark.circle.fill")
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(.white, .green)
-            } else {
-                Button(action: onAnalyzeTapped) {
-                    Image(systemName: "sparkles")
+            }
+        } else if capture.searchState == .failed {
+            badge {
+                Button(action: onRetryTapped) {
+                    Image(systemName: "arrow.clockwise")
                         .foregroundStyle(.white)
                 }
             }
         }
-        .font(.system(size: 14, weight: .semibold))
-        .frame(width: 26, height: 26)
-        .background(Circle().fill(.black.opacity(0.45)))
+    }
+
+    @ViewBuilder
+    private func badge(@ViewBuilder content: () -> some View) -> some View {
+        content()
+            .font(.system(size: 14, weight: .semibold))
+            .frame(width: 26, height: 26)
+            .background(Circle().fill(.black.opacity(0.45)))
     }
 }

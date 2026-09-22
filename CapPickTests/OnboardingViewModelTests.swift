@@ -137,12 +137,26 @@ final class OnboardingViewModelTests: XCTestCase {
 
     // MARK: - Home
 
-    func testHomeRefreshSyncsAndLoadsProgress() async {
+    func testHomeRefreshSyncsAndLoadsProgress() async throws {
         let library = FakeScreenshotLibrary(authorization: .authorized, screenshots: [shot("a"), shot("b")])
+        let credentialStore = InMemoryCredentialStore()
+        try credentialStore.save("existing-credential")
+        let registrar = InstallationRegistrar(
+            apiClient: FakeInstallationAPIClient(),
+            attestationProvider: FakeAttestationProvider(),
+            credentialStore: credentialStore
+        )
+        let contentAnalysisService = ContentAnalysisService(
+            jobAPIClient: FakeJobAPIClient(), installationRegistrar: registrar,
+            captureStore: captures, imageProvider: FakeCaptureImageProviding()
+        )
         let viewModel = HomeViewModel(
             library: library,
             syncService: ScreenshotSyncService(library: library, captureStore: captures),
-            captureStore: captures
+            captureStore: captures,
+            appStateStore: appState,
+            analysisQueueService: AnalysisQueueService(
+                captureStore: captures, contentAnalysisService: contentAnalysisService, appStateStore: appState)
         )
 
         await viewModel.refresh()

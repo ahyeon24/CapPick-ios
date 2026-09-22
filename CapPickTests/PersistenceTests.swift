@@ -121,6 +121,53 @@ final class PersistenceTests: XCTestCase {
         ))
     }
 
+    // MARK: - 자동 분석 큐 (AnalysisQueueService가 쓰는 저장소 메서드)
+
+    func testNextPendingForAnalysisReturnsMostRecentPendingOnly() async throws {
+        try await captures.save(makeCapture("older", capturedAt: 1_000, searchState: .pending))
+        try await captures.save(makeCapture("newer", capturedAt: 2_000, searchState: .pending))
+        try await captures.save(makeCapture("alreadyReady", capturedAt: 3_000, searchState: .ready))
+        try await captures.save(makeCapture("unavailable", capturedAt: 4_000, availability: .unavailable, searchState: .pending))
+        try await captures.save(makeCapture("excluded", capturedAt: 5_000, excluded: true, searchState: .pending))
+
+        let next = try await captures.nextPendingForAnalysis()
+        XCTAssertEqual(next?.id, "newer")
+    }
+
+    func testNextPendingForAnalysisReturnsNilWhenNoneLeft() async throws {
+        try await captures.save(makeCapture("ready", searchState: .ready))
+        try await captures.save(makeCapture("processing", searchState: .processing))
+        try await captures.save(makeCapture("failed", searchState: .failed))
+
+        let next = try await captures.nextPendingForAnalysis()
+        XCTAssertNil(next)
+    }
+
+    func testMarkSearchProcessingAndFailedTransitionState() async throws {
+        try await captures.save(makeCapture("c1", searchState: .pending))
+
+        try await captures.markSearchProcessing("c1")
+        var state = try await captures.fetchAll().first { $0.id == "c1" }?.searchState
+        XCTAssertEqual(state, .processing)
+
+        try await captures.markSearchFailed("c1")
+        state = try await captures.fetchAll().first { $0.id == "c1" }?.searchState
+        XCTAssertEqual(state, .failed)
+    }
+
+    func testResetStuckProcessingOnlyTouchesProcessingRows() async throws {
+        try await captures.save(makeCapture("stuck", searchState: .processing))
+        try await captures.save(makeCapture("ready", searchState: .ready))
+        try await captures.save(makeCapture("failed", searchState: .failed))
+
+        try await captures.resetStuckProcessing()
+
+        let states = Dictionary(uniqueKeysWithValues: try await captures.fetchAll().map { ($0.id, $0.searchState) })
+        XCTAssertEqual(states["stuck"], .pending)
+        XCTAssertEqual(states["ready"], .ready)
+        XCTAssertEqual(states["failed"], .failed)
+    }
+
     func testProgressIsZeroWhenNoCaptures() async throws {
         let progress = try await captures.currentProgress()
         XCTAssertEqual(progress.total, 0)

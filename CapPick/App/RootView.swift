@@ -33,11 +33,13 @@ struct RootView: View {
                 viewModel: HomeViewModel(
                     library: environment.library,
                     syncService: environment.syncService,
-                    captureStore: environment.captureStore
+                    captureStore: environment.captureStore,
+                    appStateStore: environment.appStateStore,
+                    analysisQueueService: environment.analysisQueueService
                 ),
                 captureStore: environment.captureStore,
                 thumbnailLoader: environment.thumbnailLoader,
-                contentAnalysisService: environment.contentAnalysisService
+                analysisQueueService: environment.analysisQueueService
             )
         }
     }

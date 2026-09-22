@@ -23,4 +23,19 @@ protocol CaptureStoring: Sendable {
     /// content_analysis 작업 결과를 저장하고 캡처의 searchState를 ready로 바꾼다. 하나의
     /// 트랜잭션으로 처리한다 — CaptureAnalysis·SearchDocument·Capture.searchState가 따로 놀지 않게.
     func saveAnalysis(_ analysis: CaptureAnalysis, searchDocument: SearchDocument) async throws
+
+    /// 자동 순차 분석 큐가 다음으로 처리할 캡처: 접근 가능·제외 아님·searchState pending 중
+    /// 최근 캡처 하나. 없으면 nil — 큐가 이걸로 루프 종료를 판단한다.
+    func nextPendingForAnalysis() async throws -> Capture?
+
+    /// 큐가 이 캡처의 분석을 시작하기 직전에 부른다.
+    func markSearchProcessing(_ captureID: String) async throws
+
+    /// 분석 실패 시 부른다 — 이후 자동 큐 루프(nextPendingForAnalysis)에서 이 캡처는 더 이상
+    /// 집히지 않는다(무한 재시도 금지). 사용자가 명시적으로 재시도할 때만 다시 처리된다.
+    func markSearchFailed(_ captureID: String) async throws
+
+    /// 앱이 분석 도중 종료된 뒤 재실행됐을 때, processing에 멈춰있던 캡처를 전부 pending으로
+    /// 되돌려 큐가 다시 집어갈 수 있게 한다.
+    func resetStuckProcessing() async throws
 }
