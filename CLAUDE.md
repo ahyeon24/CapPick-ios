@@ -13,7 +13,11 @@ XcodeGen 스캐폴딩 + `Models/`에 ERD v0.2 §2 로컬 엔터티를 그대로 
 
 **서버 통신도 연결돼 있다.** `Networking/`이 `CapPick-server`의 설치 검증 3개 엔드포인트를 실제로 호출하고, 앱이 로컬 DB와는 별개로 Keychain에 자격을 저장한다 — 자세한 내용은 아래 "설치 자격" 절 참고. **실제로 시뮬레이터에서 서버(로컬 `bootRun`)에 등록되는 것까지 확인했다** — 로그인 화면 없이 백그라운드에서 조용히 일어난다.
 
-**BROWSE-01의 "빈 검색어" 흐름도 있다** — 검색·폴더 없이 접근 가능한 캡처 전체를 최근순 2열 그리드로 보여준다(`Features/Browse`). 미분석(pending) 캡처도 함께 보인다(SEARCH-06). 썸네일은 `Services/ThumbnailLoading`(`PhotosThumbnailLoader`)이 `PHImageManager`로 가져온다. 지금은 정사각형 균일 그리드다 — 화면설계서가 요구하는 "이미지 비율에 따라 높이가 다른" masonry 배치는 다음 단계다(각 셀 코드에 명시해둠). `HomeView`에 "전체 보기" 버튼으로 진입한다.
+**BROWSE-01의 "빈 검색어" 흐름과 실제 검색(SEARCH-01·02·03·06·08·09)이 있다** — 검색어가 없으면 접근 가능한 캡처 전체를 최근순 2열 그리드로 보여준다(`Features/Browse`). 미분석(pending) 캡처도 함께 보인다(SEARCH-06). 썸네일은 `Services/ThumbnailLoading`(`PhotosThumbnailLoader`)이 `PHImageManager`로 가져온다. 지금은 정사각형 균일 그리드다 — 화면설계서가 요구하는 "이미지 비율에 따라 높이가 다른" masonry 배치는 다음 단계다(각 셀 코드에 명시해둠). `HomeView`에 "전체 보기" 버튼으로 진입한다.
+
+**검색은 BROWSE-01 하단 검색창(전체 범위)만 있다 — HOME-01 상단 큰 검색영역은 이번엔 안 넣었다(사용자 결정).** `Networking/SearchAPIClient`(서버 `/v1/search/prepare` 호출, Job 아님 — 동기 요청/응답)가 자연어 질의를 해석·임베딩만 받아오고, `Services/SearchRanking`(순수 함수)이 로컬 DB에서 키워드(lexicalTerms가 OCR/searchText에 포함)+코사인 유사도를 단순 합산해 정렬한다 — 결합 방식은 기능명세서 자체가 "샘플 평가 후 결정"이라 명시한 미정 항목이라 잠정치다. `Services/SearchService`(actor)가 이 둘을 조합한다. `BrowseViewModel.search()`가 요청마다 UUID를 발급해 스테일 가드(SEARCH-09: 늦게 끝난 이전 요청이 최신 결과를 덮어쓰지 않게)를 구현한다. 폴더 범위 검색(SEARCH-04·05)은 FOLDER-* 화면이 아직 없어서 없다.
+- `GRDBCaptureStore.fetchSearchCandidates(capturedFrom:capturedBefore:)`가 `capture`+`captureAnalysis`+`searchDocument` 3-way join으로 후보를 가져온다 — 분석 안 된 캡처는 애초에 후보가 아니다(INNER JOIN).
+- `GRDBCaptureStore.currentEmbeddingModelVersion()`은 지금 서버 설정이 고정이라 분석 완료된 캡처는 전부 같은 임베딩 모델 버전일 거라고 가정하고 아무거나 하나를 돌려준다 — 하나도 없으면 nil이고, 이때 `SearchService`는 서버에 요청조차 안 보내고 바로 빈 결과를 돌려준다(검색 대상 자체가 없으므로).
 
 **AI 분석 자동 큐가 붙어있다.** `Networking/JobAPIClient`(서버 `/v1/jobs` 제출·폴링)와
 `Services/ContentAnalysisService`(캡처 한 장을 제출→폴링→로컬 저장, `Services/PhotosImageDataProvider`로
@@ -27,11 +31,12 @@ ON-03에서 동의한 뒤 pending 캡처를 **최근 것부터 순서대로 자�
 아니라 **failed 캡처를 사용자가 직접 재시도**하는 용도(`arrow.clockwise` 아이콘)로 좁혀졌고
 `BrowseViewModel`도 같은 방식으로 큐 진행을 폴링해 배지를 갱신한다.
 
-**아직 없는 것**: AI 검색·폴더 화면(FOLDER-*, DETAIL-*), masonry 그리드, 앱이 완전히 백그라운드로
-전환됐을 때도 도는 진짜 백그라운드 처리(BGProcessingTask) — 지금은 포그라운드에서만 순차 처리하고
-멈추면 다음 포그라운드 진입 시 이어간다. 실패 이유를 "사진 접근/네트워크/사용량 한도"처럼 세분화해
-보여주는 것(AI-06)도 아직이다 — 지금은 실패했다는 사실과 재시도 버튼만 있다. ON-03의 AI 처리 안내
-문구는 임시이며 공급자 선정 후 확정해야 한다.
+**아직 없는 것**: 폴더 화면(FOLDER-*, DETAIL-*)과 그에 따른 폴더 범위 검색(SEARCH-04·05),
+HOME-01 상단 큰 검색영역, masonry 그리드, 앱이 완전히 백그라운드로 전환됐을 때도 도는 진짜
+백그라운드 처리(BGProcessingTask) — 지금은 포그라운드에서만 순차 처리하고 멈추면 다음 포그라운드
+진입 시 이어간다. 실패 이유를 "사진 접근/네트워크/사용량 한도"처럼 세분화해 보여주는 것(AI-06)도
+아직이다 — 지금은 실패했다는 사실과 재시도 버튼만 있다. ON-03의 AI 처리 안내 문구는 임시이며
+공급자 선정 후 확정해야 한다.
 
 **검증 이력 (2026-09-22, 자동 큐 추가 후)**: 테스트 72개(신규 `AnalysisQueueServiceTests` 6개,
 `PersistenceTests`에 큐 저장소 메서드 4개, `CaptureStoring` 프로토콜에 4개 메서드 추가) 전부 통과.
@@ -183,7 +188,9 @@ xcodebuild test -project CapPick.xcodeproj -scheme CapPick \
 
 **검증 이력 (2026-09-22, Browse 추가 후)**: 테스트 53개(추가된 2개는 `BrowseViewModelTests`) 전부 통과, 실기기 SDK 빌드 성공. `simctl addmedia`로 시뮬레이터 사진 보관함에 이미지 3장을 넣고, `simctl privacy grant photos`로 권한을 주고 앱을 재실행하니 **정상적으로 스크린샷 3장이 인식돼 로컬 DB에 등록됐다** — 처음엔 "addmedia로 넣은 이미지는 스크린샷 서브타입이 안 붙는다"고 잘못 추측했었는데, 실제로는 사진 접근 권한이 없어서 동기화 자체가 스킵된 것이었다(권한 부여 전엔 0장, 후엔 3장). **사용자가 시뮬레이터에서 직접 "전체 보기"를 눌러 스크린샷으로 그리드가 실제로 채워지는 것까지 확인해줬다** — 사주 앱, 컴퓨터 네트워크 강의 슬라이드, 알고리즘 문제 스크린샷 3장이 2열 그리드에 정상 렌더링됨. `PhotosThumbnailLoader`가 진짜 `PHAsset`에서 이미지를 그려내는 것까지 실증됐다.
 
-**아직 확인 안 한 것**: ON-02(사진 권한 요청 창)·ON-03(분석 시작) 단계의 실제 탭 흐름, masonry(가변 높이) 레이아웃. CLI/AppleScript로는 화면을 안정적으로 탭할 수 없어(시뮬레이터 창을 AppleScript System Events가 못 잡음, 여러 번 시도했지만 실패) UI 테스트(XCUITest)도 아직 없다 — 필요하면 다음에 추가할 수 있다. 실제 App Attest(`AppAttestProvider`)는 Apple Developer 계정이 없어 전혀 테스트 못 했다.
+**아직 확인 안 한 것**: ON-02(사진 권한 요청 창)·ON-03(분석 시작) 단계의 실제 탭 흐름, masonry(가변 높이) 레이아웃. CLI/AppleScript로는 화면을 안정적으로 탭할 수 없어(시뮬레이터 창을 AppleScript System Events가 못 잡음, 여러 번 시도했지만 실패) UI 테스트(XCUITest)도 아직 없다 — 필요하면 다음에 추가할 수 있다. 실제 App Attest(`AppAttestProvider`)는 Apple Developer 계정이 없어 전혀 테스트 못 했다. 시뮬레이터 창을 확대하고 사용자가 직접 탭하면 조작 자체는 가능하다는 걸 2026-09-22에 확인했다 — 창이 작으면(스케일 축소) 작은 탭 타깃이 자주 빗나간다.
+
+**검증 이력 (2026-09-22, 검색 추가 후)**: 테스트 88개(신규 `SearchRankingTests` 5개, `URLSessionSearchAPIClientTests` 3개, `PersistenceTests`에 검색 후보 저장소 메서드 5개, `BrowseViewModelTests`에 검색 3개 — 스테일 가드 포함) 전부 통과. 시뮬레이터에서 검색창·"결과 없음" 상태까지 실제로 확인했다(사용자가 직접 검색어를 입력·실행). **다만 실제로 매칭되는 검색 결과는 아직 못 봤다** — 오늘 세션 내내 Gemini 무료 한도가 소진돼 있어서 분석이 성공적으로 끝난 캡처가 하나도 없었고(`searchDocument` 0행), `SearchService`가 이 경우 서버 호출도 없이 빈 결과를 돌려주는 것까지는 로컬 DB로 확인됐다. 분석이 실제로 한 장이라도 성공하면 그다음으로 키워드·의미 검색 결과 자체를 확인할 것.
 
 ## 현재 설정값 (모두 잠정치, 필요 시 `project.yml`에서 수정)
 

@@ -39,7 +39,8 @@ struct RootView: View {
                 ),
                 captureStore: environment.captureStore,
                 thumbnailLoader: environment.thumbnailLoader,
-                analysisQueueService: environment.analysisQueueService
+                analysisQueueService: environment.analysisQueueService,
+                searchService: environment.searchService
             )
         }
     }

@@ -158,6 +158,38 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
+    func fetchSearchCandidates(capturedFrom: Date?, capturedBefore: Date?) async throws -> [SearchCandidate] {
+        try await database.dbWriter.read { db in
+            var sql = """
+                SELECT capture.*, captureAnalysis.ocrText AS ocrText, searchDocument.searchText AS searchText,
+                       searchDocument.embedding AS embedding
+                FROM capture
+                JOIN captureAnalysis ON captureAnalysis.captureID = capture.id
+                JOIN searchDocument ON searchDocument.captureID = capture.id
+                WHERE \(Self.visible)
+                """
+            var arguments: [any DatabaseValueConvertible] = []
+            if let capturedFrom {
+                sql += " AND capture.capturedAt >= ?"
+                arguments.append(capturedFrom)
+            }
+            if let capturedBefore {
+                sql += " AND capture.capturedAt < ?"
+                arguments.append(capturedBefore)
+            }
+            sql += " ORDER BY capture.capturedAt DESC"
+
+            let rows = try SearchCandidateRow.fetchAll(db, sql: sql, arguments: StatementArguments(arguments))
+            return rows.map(\.asSearchCandidate)
+        }
+    }
+
+    func currentEmbeddingModelVersion() async throws -> String? {
+        try await database.dbWriter.read { db in
+            try String.fetchOne(db, sql: "SELECT embeddingModelVersion FROM searchDocument LIMIT 1")
+        }
+    }
+
     func currentProgress() async throws -> AnalysisProgress {
         try await database.dbWriter.read { db in
             let row = try Row.fetchOne(db, sql: """
@@ -186,5 +218,37 @@ struct GRDBCaptureStore: CaptureStoring {
                 classificationFailed: row["classificationFailed"]
             )
         }
+    }
+}
+
+// fetchSearchCandidates()의 3-way join 결과 하나를 그대로 받는 전용 레코드. Capture 자체를
+// 재사용하지 않는 이유: capture.* 만으로는 ocrText/searchText/embedding까지 같이 못 실어서,
+// Codable 자동 디코딩(embedding의 JSON 텍스트 -> [Double] 변환 포함, SearchDocument와 동일한
+// GRDB 메커니즘)을 그대로 쓸 수 있는 별도 구조체를 둔다.
+private struct SearchCandidateRow: Decodable, FetchableRecord {
+    let id: String
+    let photoAssetID: String
+    let capturedAt: Date
+    let width: Int
+    let height: Int
+    let availability: CaptureAvailability
+    let excludedAt: Date?
+    let favorite: Bool
+    let contentRevision: Int
+    let searchState: SearchState
+    let classificationState: ClassificationState
+    let ocrText: String?
+    let searchText: String
+    let embedding: [Double]
+
+    var asSearchCandidate: SearchCandidate {
+        SearchCandidate(
+            capture: Capture(
+                id: id, photoAssetID: photoAssetID, capturedAt: capturedAt, width: width, height: height,
+                availability: availability, excludedAt: excludedAt, favorite: favorite,
+                contentRevision: contentRevision, searchState: searchState, classificationState: classificationState
+            ),
+            ocrText: ocrText, searchText: searchText, embedding: embedding
+        )
     }
 }

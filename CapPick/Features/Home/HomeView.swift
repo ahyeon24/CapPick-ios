@@ -9,15 +9,18 @@ struct HomeView: View {
     private let captureStore: any CaptureStoring
     private let thumbnailLoader: any ThumbnailLoading
     private let analysisQueueService: AnalysisQueueService
+    private let searchService: SearchService
 
     init(
         viewModel: HomeViewModel, captureStore: any CaptureStoring,
-        thumbnailLoader: any ThumbnailLoading, analysisQueueService: AnalysisQueueService
+        thumbnailLoader: any ThumbnailLoading, analysisQueueService: AnalysisQueueService,
+        searchService: SearchService
     ) {
         _viewModel = State(initialValue: viewModel)
         self.captureStore = captureStore
         self.thumbnailLoader = thumbnailLoader
         self.analysisQueueService = analysisQueueService
+        self.searchService = searchService
     }
 
     var body: some View {
@@ -58,7 +61,8 @@ struct HomeView: View {
                 NavigationLink("전체 보기") {
                     BrowseView(
                         viewModel: BrowseViewModel(
-                            captureStore: captureStore, analysisQueueService: analysisQueueService),
+                            captureStore: captureStore, analysisQueueService: analysisQueueService,
+                            searchService: searchService),
                         thumbnailLoader: thumbnailLoader
                     )
                 }

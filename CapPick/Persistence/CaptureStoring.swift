@@ -1,3 +1,5 @@
+import Foundation
+
 // 캡처 목록에 어떤 캡처가 보여야 하는지(ERD §3)는 이 프로토콜 구현체 안에서만 판단한다.
 // 호출하는 쪽(ViewModel)은 필터 조건을 다시 조립하지 않는다.
 protocol CaptureStoring: Sendable {
@@ -38,4 +40,13 @@ protocol CaptureStoring: Sendable {
     /// 앱이 분석 도중 종료된 뒤 재실행됐을 때, processing에 멈춰있던 캡처를 전부 pending으로
     /// 되돌려 큐가 다시 집어갈 수 있게 한다.
     func resetStuckProcessing() async throws
+
+    /// 검색 후보: 분석이 끝나(searchDocument가 있는) 접근 가능·제외 안 된 캡처. capturedFrom/Before로
+    /// 캡처 시각 구간을 좁힌다(둘 다 nil이면 전체 기간). 최근 캡처부터.
+    func fetchSearchCandidates(capturedFrom: Date?, capturedBefore: Date?) async throws -> [SearchCandidate]
+
+    /// 로컬에 저장된 임베딩의 모델 버전. 지금은 서버 설정이 고정이라 분석 완료된 캡처는 전부 같은
+    /// 버전일 거라고 가정하고 아무거나 하나를 돌려준다 — 분석된 캡처가 하나도 없으면 nil(검색
+    /// 자체가 의미 없음).
+    func currentEmbeddingModelVersion() async throws -> String?
 }

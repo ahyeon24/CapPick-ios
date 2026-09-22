@@ -36,6 +36,20 @@ final class PersistenceTests: XCTestCase {
         )
     }
 
+    private func saveAnalysis(
+        for captureID: String, ocrText: String = "", searchText: String = "", embedding: [Double] = [],
+        embeddingModelVersion: String = "v1"
+    ) async throws {
+        try await captures.saveAnalysis(
+            CaptureAnalysis(
+                captureID: captureID, contentRevision: 1, analysisRevision: 1,
+                ocrText: ocrText, observedEvidence: [], modelVersion: "m1"),
+            searchDocument: SearchDocument(
+                captureID: captureID, sourceAnalysisRevision: 1, searchText: searchText,
+                embedding: embedding, embeddingModelVersion: embeddingModelVersion, state: "ready")
+        )
+    }
+
     private func makeFolder(_ id: String, criteriaVersion: Int = 1) -> Folder {
         Folder(
             id: id,
@@ -166,6 +180,67 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(states["stuck"], .pending)
         XCTAssertEqual(states["ready"], .ready)
         XCTAssertEqual(states["failed"], .failed)
+    }
+
+    // MARK: - 검색 후보 (SearchService가 쓰는 저장소 메서드)
+
+    func testFetchSearchCandidatesOnlyIncludesAnalyzedCaptures() async throws {
+        try await captures.save(makeCapture("analyzed", capturedAt: 1_000, searchState: .ready))
+        try await saveAnalysis(for: "analyzed", ocrText: "면접 질문", embedding: [1, 0])
+        try await captures.save(makeCapture("pending", capturedAt: 2_000, searchState: .pending))
+        try await captures.save(makeCapture("failed", capturedAt: 3_000, searchState: .failed))
+
+        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil)
+
+        XCTAssertEqual(candidates.map(\.capture.id), ["analyzed"])
+        XCTAssertEqual(candidates.first?.ocrText, "면접 질문")
+        XCTAssertEqual(candidates.first?.embedding, [1, 0])
+    }
+
+    func testFetchSearchCandidatesExcludesUnavailableAndExcluded() async throws {
+        try await captures.save(makeCapture("visible", searchState: .ready))
+        try await saveAnalysis(for: "visible")
+        try await captures.save(makeCapture("gone", availability: .unavailable, searchState: .ready))
+        try await saveAnalysis(for: "gone")
+        try await captures.save(makeCapture("excluded", excluded: true, searchState: .ready))
+        try await saveAnalysis(for: "excluded")
+
+        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil)
+
+        XCTAssertEqual(candidates.map(\.capture.id), ["visible"])
+    }
+
+    func testFetchSearchCandidatesFiltersByCapturedDateRangeStartInclusiveEndExclusive() async throws {
+        try await captures.save(makeCapture("before", capturedAt: 999, searchState: .ready))
+        try await saveAnalysis(for: "before")
+        try await captures.save(makeCapture("atStart", capturedAt: 1_000, searchState: .ready))
+        try await saveAnalysis(for: "atStart")
+        try await captures.save(makeCapture("inRange", capturedAt: 1_500, searchState: .ready))
+        try await saveAnalysis(for: "inRange")
+        try await captures.save(makeCapture("atEnd", capturedAt: 2_000, searchState: .ready))
+        try await saveAnalysis(for: "atEnd")
+
+        let candidates = try await captures.fetchSearchCandidates(
+            capturedFrom: Date(timeIntervalSince1970: 1_000), capturedBefore: Date(timeIntervalSince1970: 2_000))
+
+        XCTAssertEqual(Set(candidates.map(\.capture.id)), ["atStart", "inRange"])
+    }
+
+    func testCurrentEmbeddingModelVersionReturnsNilWhenNothingAnalyzed() async throws {
+        try await captures.save(makeCapture("pending", searchState: .pending))
+
+        let version = try await captures.currentEmbeddingModelVersion()
+
+        XCTAssertNil(version)
+    }
+
+    func testCurrentEmbeddingModelVersionReturnsStoredVersion() async throws {
+        try await captures.save(makeCapture("c1"))
+        try await saveAnalysis(for: "c1", embeddingModelVersion: "gemini-embedding-001")
+
+        let version = try await captures.currentEmbeddingModelVersion()
+
+        XCTAssertEqual(version, "gemini-embedding-001")
     }
 
     func testProgressIsZeroWhenNoCaptures() async throws {

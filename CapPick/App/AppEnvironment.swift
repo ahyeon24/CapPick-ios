@@ -10,6 +10,7 @@ struct AppEnvironment: Sendable {
     let installationRegistrar: InstallationRegistrar
     let thumbnailLoader: any ThumbnailLoading
     let analysisQueueService: AnalysisQueueService
+    let searchService: SearchService
 
     // 로컬 개발 전용 기본값 — 시뮬레이터에서 Mac의 localhost를 그대로 가리킨다. 배포 주소는
     // 아직 없다(API 명세 §1: "배포 주소 없음"). 실기기로 테스트하려면 Mac의 LAN IP로 바꿔야 한다.
@@ -42,6 +43,11 @@ struct AppEnvironment: Sendable {
             contentAnalysisService: contentAnalysisService,
             appStateStore: appStateStore
         )
+        let searchService = SearchService(
+            searchAPIClient: URLSessionSearchAPIClient(baseURL: developmentServerURL),
+            installationRegistrar: installationRegistrar,
+            captureStore: captureStore
+        )
 
         return AppEnvironment(
             library: library,
@@ -51,7 +57,8 @@ struct AppEnvironment: Sendable {
             syncService: ScreenshotSyncService(library: library, captureStore: captureStore),
             installationRegistrar: installationRegistrar,
             thumbnailLoader: PhotosThumbnailLoader(),
-            analysisQueueService: analysisQueueService
+            analysisQueueService: analysisQueueService,
+            searchService: searchService
         )
     }
 }
