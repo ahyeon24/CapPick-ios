@@ -9,6 +9,7 @@ struct AppEnvironment: Sendable {
     let syncService: ScreenshotSyncService
     let installationRegistrar: InstallationRegistrar
     let thumbnailLoader: any ThumbnailLoading
+    let contentAnalysisService: ContentAnalysisService
 
     // 로컬 개발 전용 기본값 — 시뮬레이터에서 Mac의 localhost를 그대로 가리킨다. 배포 주소는
     // 아직 없다(API 명세 §1: "배포 주소 없음"). 실기기로 테스트하려면 Mac의 LAN IP로 바꿔야 한다.
@@ -20,14 +21,21 @@ struct AppEnvironment: Sendable {
         let captureStore = GRDBCaptureStore(database: database)
         let appStateStore = GRDBAppStateStore(database: database)
 
-        let apiClient = URLSessionInstallationAPIClient(baseURL: developmentServerURL)
+        let installationAPIClient = URLSessionInstallationAPIClient(baseURL: developmentServerURL)
         // Apple Developer Program 미가입 상태라 AppAttestProvider 대신 우회 구현을 쓴다
         // (서버 cappick.attestation.mode=bypass와 짝). 계정이 생기면 여기만 바꾸면 된다.
         let attestationProvider = DevBypassAttestationProvider(appStateStore: appStateStore)
         let installationRegistrar = InstallationRegistrar(
-            apiClient: apiClient,
+            apiClient: installationAPIClient,
             attestationProvider: attestationProvider,
             credentialStore: KeychainCredentialStore()
+        )
+
+        let contentAnalysisService = ContentAnalysisService(
+            jobAPIClient: URLSessionJobAPIClient(baseURL: developmentServerURL),
+            installationRegistrar: installationRegistrar,
+            captureStore: captureStore,
+            imageProvider: PhotosImageDataProvider()
         )
 
         return AppEnvironment(
@@ -37,7 +45,8 @@ struct AppEnvironment: Sendable {
             appStateStore: appStateStore,
             syncService: ScreenshotSyncService(library: library, captureStore: captureStore),
             installationRegistrar: installationRegistrar,
-            thumbnailLoader: PhotosThumbnailLoader()
+            thumbnailLoader: PhotosThumbnailLoader(),
+            contentAnalysisService: contentAnalysisService
         )
     }
 }

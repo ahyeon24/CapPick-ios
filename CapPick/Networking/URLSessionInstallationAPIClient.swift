@@ -58,35 +58,7 @@ final class URLSessionInstallationAPIClient: InstallationAPIClient {
     }
 
     private func send<Response: Decodable>(_ request: URLRequest) async throws -> Response {
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw CapPickAPIError.network(error.localizedDescription)
-        }
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw CapPickAPIError.network("no HTTP response")
-        }
-
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            if let errorBody = try? CapPickJSON.decoder.decode(ApiErrorResponseDTO.self, from: data) {
-                throw CapPickAPIError.server(
-                    status: httpResponse.statusCode,
-                    code: errorBody.error.code,
-                    message: errorBody.error.message,
-                    retryable: errorBody.error.retryable
-                )
-            }
-            throw CapPickAPIError.unexpectedResponse(status: httpResponse.statusCode)
-        }
-
-        do {
-            return try CapPickJSON.decoder.decode(Response.self, from: data)
-        } catch {
-            throw CapPickAPIError.decoding("\(error)")
-        }
+        try await CapPickHTTP.send(request, session: session)
     }
 }
 

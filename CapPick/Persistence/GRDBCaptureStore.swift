@@ -117,6 +117,17 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
+    func saveAnalysis(_ analysis: CaptureAnalysis, searchDocument: SearchDocument) async throws {
+        try await database.dbWriter.write { db in
+            try analysis.save(db)
+            try searchDocument.save(db)
+            try db.execute(
+                sql: "UPDATE capture SET searchState = 'ready' WHERE id = ?",
+                arguments: [analysis.captureID]
+            )
+        }
+    }
+
     func currentProgress() async throws -> AnalysisProgress {
         try await database.dbWriter.read { db in
             let row = try Row.fetchOne(db, sql: """

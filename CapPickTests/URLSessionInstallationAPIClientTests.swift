@@ -126,19 +126,3 @@ final class URLSessionInstallationAPIClientTests: XCTestCase {
     }
 }
 
-private extension URLRequest {
-    var bodyData: Data? {
-        httpBody ?? httpBodyStream.map { stream in
-            stream.open()
-            defer { stream.close() }
-            var data = Data()
-            let bufferSize = 4096
-            var buffer = [UInt8](repeating: 0, count: bufferSize)
-            while stream.hasBytesAvailable {
-                let read = stream.read(&buffer, maxLength: bufferSize)
-                if read > 0 { data.append(buffer, count: read) }
-            }
-            return data
-        }
-    }
-}

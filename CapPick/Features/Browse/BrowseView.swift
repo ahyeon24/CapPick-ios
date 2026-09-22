@@ -22,7 +22,12 @@ struct BrowseView: View {
                 // LazyVGrid라 스크롤에 따라 썸네일을 늦게 불러온다 — 한 번에 원본을 전부 안 불러온다(§7.5).
                 LazyVGrid(columns: columns, spacing: 2) {
                     ForEach(viewModel.captures) { capture in
-                        CaptureThumbnailView(capture: capture, thumbnailLoader: thumbnailLoader)
+                        CaptureThumbnailView(
+                            capture: capture,
+                            thumbnailLoader: thumbnailLoader,
+                            isAnalyzing: viewModel.analyzingCaptureIDs.contains(capture.id),
+                            onAnalyzeTapped: { Task { await viewModel.analyze(capture) } }
+                        )
                     }
                 }
             }

@@ -8,11 +8,16 @@ struct HomeView: View {
 
     private let captureStore: any CaptureStoring
     private let thumbnailLoader: any ThumbnailLoading
+    private let contentAnalysisService: ContentAnalysisService
 
-    init(viewModel: HomeViewModel, captureStore: any CaptureStoring, thumbnailLoader: any ThumbnailLoading) {
+    init(
+        viewModel: HomeViewModel, captureStore: any CaptureStoring,
+        thumbnailLoader: any ThumbnailLoading, contentAnalysisService: ContentAnalysisService
+    ) {
         _viewModel = State(initialValue: viewModel)
         self.captureStore = captureStore
         self.thumbnailLoader = thumbnailLoader
+        self.contentAnalysisService = contentAnalysisService
     }
 
     var body: some View {
@@ -52,7 +57,8 @@ struct HomeView: View {
             if progress.total > 0 {
                 NavigationLink("전체 보기") {
                     BrowseView(
-                        viewModel: BrowseViewModel(captureStore: captureStore),
+                        viewModel: BrowseViewModel(
+                            captureStore: captureStore, contentAnalysisService: contentAnalysisService),
                         thumbnailLoader: thumbnailLoader
                     )
                 }

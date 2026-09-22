@@ -36,7 +36,8 @@ struct RootView: View {
                     captureStore: environment.captureStore
                 ),
                 captureStore: environment.captureStore,
-                thumbnailLoader: environment.thumbnailLoader
+                thumbnailLoader: environment.thumbnailLoader,
+                contentAnalysisService: environment.contentAnalysisService
             )
         }
     }

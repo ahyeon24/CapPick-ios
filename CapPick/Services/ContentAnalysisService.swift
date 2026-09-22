@@ -1,0 +1,97 @@
+import Foundation
+
+enum ContentAnalysisError: Error, Equatable {
+    case imageUnavailable
+    case jobFailed(code: String)
+    case timedOut
+}
+
+/// 캡처 하나를 서버에 제출→폴링→로컬 저장까지 잇는다 (API 명세 §4 content_analysis,
+/// CapPick-server/CLAUDE.md "Job 도메인" 절과 짝). 아직 여러 캡처를 순서대로 처리하는
+/// 대기열(AI-04/05/06)은 없다 — 캡처 한 장을 수동으로 트리거하는 첫 조각이다.
+actor ContentAnalysisService {
+    private let jobAPIClient: any JobAPIClient
+    private let installationRegistrar: InstallationRegistrar
+    private let captureStore: any CaptureStoring
+    private let imageProvider: any CaptureImageProviding
+
+    // 잠정치 — poll_after_seconds 사이 재시도 횟수 상한. 서버가 응답 없이 영원히 queued를
+    // 돌려주는 경우에도 무한 대기하지 않는다.
+    private let maxPollAttempts = 30
+
+    init(
+        jobAPIClient: any JobAPIClient,
+        installationRegistrar: InstallationRegistrar,
+        captureStore: any CaptureStoring,
+        imageProvider: any CaptureImageProviding
+    ) {
+        self.jobAPIClient = jobAPIClient
+        self.installationRegistrar = installationRegistrar
+        self.captureStore = captureStore
+        self.imageProvider = imageProvider
+    }
+
+    func analyze(_ capture: Capture) async throws {
+        guard let imageData = await imageProvider.imageData(for: capture.photoAssetID) else {
+            throw ContentAnalysisError.imageUnavailable
+        }
+
+        let credential = try await installationRegistrar.ensureRegistered()
+        // capture당·content_revision당 같은 키를 써서, 같은 캡처를 다시 눌러도 서버가 중복
+        // 작업을 새로 만들지 않는다(API 명세 §2 Idempotency-Key).
+        let idempotencyKey = "content-analysis-\(capture.id)-r\(capture.contentRevision)"
+
+        let submitted = try await jobAPIClient.submitContentAnalysis(
+            clientReference: capture.id,
+            contentRevision: capture.contentRevision,
+            ocrTextHint: nil,
+            imageData: imageData,
+            credential: credential,
+            idempotencyKey: idempotencyKey
+        )
+
+        try await poll(jobId: submitted.jobId, initialDelay: submitted.pollAfterSeconds, credential: credential, capture: capture)
+    }
+
+    private func poll(jobId: String, initialDelay: Int, credential: String, capture: Capture) async throws {
+        var delaySeconds = max(initialDelay, 1)
+        for _ in 0..<maxPollAttempts {
+            try await Task.sleep(for: .seconds(delaySeconds))
+            let status = try await jobAPIClient.fetchJobStatus(jobId: jobId, credential: credential)
+
+            switch status.status {
+            case .succeeded:
+                guard let result = status.result else {
+                    throw ContentAnalysisError.jobFailed(code: "MISSING_RESULT")
+                }
+                try await save(result, for: capture)
+                return
+            case .failed:
+                throw ContentAnalysisError.jobFailed(code: status.error?.code ?? "UNKNOWN")
+            case .queued, .running:
+                delaySeconds = 2
+            }
+        }
+        throw ContentAnalysisError.timedOut
+    }
+
+    private func save(_ result: ContentAnalysisResultDTO, for capture: Capture) async throws {
+        let analysis = CaptureAnalysis(
+            captureID: capture.id,
+            contentRevision: capture.contentRevision,
+            analysisRevision: result.analysisRevision,
+            ocrText: result.ocrText.isEmpty ? nil : result.ocrText,
+            observedEvidence: result.observedEvidence,
+            modelVersion: result.embeddingModelVersion
+        )
+        let document = SearchDocument(
+            captureID: capture.id,
+            sourceAnalysisRevision: result.analysisRevision,
+            searchText: result.searchText,
+            embedding: result.embedding,
+            embeddingModelVersion: result.embeddingModelVersion,
+            state: "ready"
+        )
+        try await captureStore.saveAnalysis(analysis, searchDocument: document)
+    }
+}

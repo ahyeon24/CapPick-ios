@@ -19,4 +19,8 @@ protocol CaptureStoring: Sendable {
     /// 이번 목록에 없는 기존 캡처는 접근 불가(unavailable)로 표시하고, 다시 나타나면 접근 가능으로 되돌린다.
     /// 캡픽에서 제외한 캡처도 기록이 남아 있으므로 다시 등록되지 않는다.
     func registerDiscovered(_ screenshots: [DiscoveredScreenshot]) async throws -> ScreenshotSyncResult
+
+    /// content_analysis 작업 결과를 저장하고 캡처의 searchState를 ready로 바꾼다. 하나의
+    /// 트랜잭션으로 처리한다 — CaptureAnalysis·SearchDocument·Capture.searchState가 따로 놀지 않게.
+    func saveAnalysis(_ analysis: CaptureAnalysis, searchDocument: SearchDocument) async throws
 }
