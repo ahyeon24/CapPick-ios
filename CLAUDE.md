@@ -13,9 +13,11 @@ XcodeGen 스캐폴딩 + `Models/`에 ERD v0.2 §2 로컬 엔터티를 그대로 
 
 **서버 통신도 연결돼 있다.** `Networking/`이 `CapPick-server`의 설치 검증 3개 엔드포인트를 실제로 호출하고, 앱이 로컬 DB와는 별개로 Keychain에 자격을 저장한다 — 자세한 내용은 아래 "설치 자격" 절 참고. **실제로 시뮬레이터에서 서버(로컬 `bootRun`)에 등록되는 것까지 확인했다** — 로그인 화면 없이 백그라운드에서 조용히 일어난다.
 
-**아직 없는 것**: AI 분석·검색·폴더 화면, Job 관련 API 클라이언트. ON-03의 "전체 캡처 분석 시작"은 지금은 `AppState`의 `analysisStartRequested`에 사용자 의사만 기록하고 등록된 캡처는 분석 대기(pending)로 남는다. 실제 분석 요청은 서버에 Job 도메인이 생기고 AI 공급자가 정해진 뒤 붙인다. ON-03의 AI 처리 안내 문구는 임시이며 공급자 선정 후 확정해야 한다.
+**BROWSE-01의 "빈 검색어" 흐름도 있다** — 검색·폴더 없이 접근 가능한 캡처 전체를 최근순 2열 그리드로 보여준다(`Features/Browse`). 미분석(pending) 캡처도 함께 보인다(SEARCH-06). 썸네일은 `Services/ThumbnailLoading`(`PhotosThumbnailLoader`)이 `PHImageManager`로 가져온다. 지금은 정사각형 균일 그리드다 — 화면설계서가 요구하는 "이미지 비율에 따라 높이가 다른" masonry 배치는 다음 단계다(각 셀 코드에 명시해둠). `HomeView`에 "전체 보기" 버튼으로 진입한다.
 
-`CapPickTests/`에 테스트 51개(Persistence 18, 스크린샷 동기화 7, 온보딩·홈 ViewModel 9, 설치 자격 관련 12, API 클라이언트 5)가 있다. 화면설계서(`../docs/cappick-screen-spec-v0.8.md`)의 HOME-01 나머지, BROWSE-01 등을 이어서 구현하면 된다.
+**아직 없는 것**: AI 분석·검색·폴더 화면(FOLDER-*, DETAIL-*), Job 관련 API 클라이언트, masonry 그리드. ON-03의 "전체 캡처 분석 시작"은 지금은 `AppState`의 `analysisStartRequested`에 사용자 의사만 기록하고 등록된 캡처는 분석 대기(pending)로 남는다. 실제 분석 요청은 서버에 Job 도메인이 생기고 AI 공급자가 정해진 뒤 붙인다. ON-03의 AI 처리 안내 문구는 임시이며 공급자 선정 후 확정해야 한다.
+
+`CapPickTests/`에 테스트 53개(Persistence 18, 스크린샷 동기화 7, 온보딩·홈 ViewModel 9, 설치 자격 관련 12, API 클라이언트 5, Browse 2)가 있다. 화면설계서(`../docs/cappick-screen-spec-v0.8.md`)의 HOME-01 나머지, FOLDER-* 등을 이어서 구현하면 된다.
 
 `Models/`의 일부 상태값(`SearchDocument.state`, `Folder.criteriaState`의 일부, `ReclassificationRun.state`, `ReclassificationItem.state`)은 ERD에 전체 값 집합이 명시돼 있지 않다 — 각 파일 주석에 근거와 "확정 전" 표시를 남겨뒀다. 서버 쪽 계약이 구체화되면 이 모델들도 같이 업데이트해야 한다.
 
@@ -156,7 +158,9 @@ xcodebuild test -project CapPick.xcodeproj -scheme CapPick \
 
 **검증 이력 (2026-09-22, Networking 추가 후)**: 테스트 51개(추가된 12개는 설치 자격 관련 — `InstallationRegistrarTests`, `DevBypassAttestationProviderTests`, `KeychainCredentialStoreTests`, 5개는 `URLSessionInstallationAPIClientTests`) 전부 통과. **`CapPick-server`를 로컬에서 실제로 띄우고(`./gradlew bootRun`, bypass 모드) 앱을 시뮬레이터에 설치·실행해서 서버 DB에 `installation` 행이 실제로 생기는 것까지 확인했다.** 앱을 껐다 다시 켜도 중복 등록되지 않고(Keychain 캐시 재사용) 행 수가 그대로인 것도 확인했다 — 클라이언트-서버 통합이 처음으로 실제 동작한 지점이다.
 
-**아직 확인 안 한 것**: 화면을 눌러가며 하는 흐름(사진 권한 창, ON-02→ON-03 이동, 스크린샷 개수 표시). 시뮬레이터 사진 보관함에는 스크린샷이 없어서 스크린샷 발견은 스크린샷이 있는 실기기 아이폰에서 확인해야 한다. CLI에서는 화면을 탭할 수 없어 UI 테스트도 아직 없다. 실제 App Attest(`AppAttestProvider`)는 Apple Developer 계정이 없어 전혀 테스트 못 했다.
+**검증 이력 (2026-09-22, Browse 추가 후)**: 테스트 53개(추가된 2개는 `BrowseViewModelTests`) 전부 통과, 실기기 SDK 빌드 성공. `simctl addmedia`로 시뮬레이터 사진 보관함에 이미지 3장을 넣고, `simctl privacy grant photos`로 권한을 주고 앱을 재실행하니 **정상적으로 스크린샷 3장이 인식돼 로컬 DB에 등록됐다** — 처음엔 "addmedia로 넣은 이미지는 스크린샷 서브타입이 안 붙는다"고 잘못 추측했었는데, 실제로는 사진 접근 권한이 없어서 동기화 자체가 스킵된 것이었다(권한 부여 전엔 0장, 후엔 3장). **사용자가 시뮬레이터에서 직접 "전체 보기"를 눌러 스크린샷으로 그리드가 실제로 채워지는 것까지 확인해줬다** — 사주 앱, 컴퓨터 네트워크 강의 슬라이드, 알고리즘 문제 스크린샷 3장이 2열 그리드에 정상 렌더링됨. `PhotosThumbnailLoader`가 진짜 `PHAsset`에서 이미지를 그려내는 것까지 실증됐다.
+
+**아직 확인 안 한 것**: ON-02(사진 권한 요청 창)·ON-03(분석 시작) 단계의 실제 탭 흐름, masonry(가변 높이) 레이아웃. CLI/AppleScript로는 화면을 안정적으로 탭할 수 없어(시뮬레이터 창을 AppleScript System Events가 못 잡음, 여러 번 시도했지만 실패) UI 테스트(XCUITest)도 아직 없다 — 필요하면 다음에 추가할 수 있다. 실제 App Attest(`AppAttestProvider`)는 Apple Developer 계정이 없어 전혀 테스트 못 했다.
 
 ## 현재 설정값 (모두 잠정치, 필요 시 `project.yml`에서 수정)
 

@@ -8,6 +8,7 @@ struct AppEnvironment: Sendable {
     let appStateStore: any AppStateStoring
     let syncService: ScreenshotSyncService
     let installationRegistrar: InstallationRegistrar
+    let thumbnailLoader: any ThumbnailLoading
 
     // 로컬 개발 전용 기본값 — 시뮬레이터에서 Mac의 localhost를 그대로 가리킨다. 배포 주소는
     // 아직 없다(API 명세 §1: "배포 주소 없음"). 실기기로 테스트하려면 Mac의 LAN IP로 바꿔야 한다.
@@ -35,7 +36,8 @@ struct AppEnvironment: Sendable {
             folderStore: GRDBFolderStore(database: database),
             appStateStore: appStateStore,
             syncService: ScreenshotSyncService(library: library, captureStore: captureStore),
-            installationRegistrar: installationRegistrar
+            installationRegistrar: installationRegistrar,
+            thumbnailLoader: PhotosThumbnailLoader()
         )
     }
 }

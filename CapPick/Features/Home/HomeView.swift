@@ -6,22 +6,29 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
 
-    init(viewModel: HomeViewModel) {
+    private let captureStore: any CaptureStoring
+    private let thumbnailLoader: any ThumbnailLoading
+
+    init(viewModel: HomeViewModel, captureStore: any CaptureStoring, thumbnailLoader: any ThumbnailLoading) {
         _viewModel = State(initialValue: viewModel)
+        self.captureStore = captureStore
+        self.thumbnailLoader = thumbnailLoader
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("CapPick").font(.largeTitle.bold())
-            content
-            Spacer()
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .task { await viewModel.refresh() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                Task { await viewModel.refresh() }
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("CapPick").font(.largeTitle.bold())
+                content
+                Spacer()
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .task { await viewModel.refresh() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    Task { await viewModel.refresh() }
+                }
             }
         }
     }
@@ -42,6 +49,15 @@ struct HomeView: View {
             Text("접근 가능한 스크린샷 \(progress.total.formatted())장").font(.title3)
             Text("\(progress.searchReady.formatted()) / \(progress.total.formatted())장 분석 완료")
                 .foregroundStyle(.secondary)
+            if progress.total > 0 {
+                NavigationLink("전체 보기") {
+                    BrowseView(
+                        viewModel: BrowseViewModel(captureStore: captureStore),
+                        thumbnailLoader: thumbnailLoader
+                    )
+                }
+                .buttonStyle(.bordered)
+            }
         } else if let message = viewModel.errorMessage {
             Text(message).foregroundStyle(.red)
         } else {

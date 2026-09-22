@@ -29,11 +29,15 @@ struct RootView: View {
                 onFinished: { route = .home }
             ))
         case .home:
-            HomeView(viewModel: HomeViewModel(
-                library: environment.library,
-                syncService: environment.syncService,
-                captureStore: environment.captureStore
-            ))
+            HomeView(
+                viewModel: HomeViewModel(
+                    library: environment.library,
+                    syncService: environment.syncService,
+                    captureStore: environment.captureStore
+                ),
+                captureStore: environment.captureStore,
+                thumbnailLoader: environment.thumbnailLoader
+            )
         }
     }
 
