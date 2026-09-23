@@ -5,12 +5,14 @@ import XCTest
 final class OnboardingViewModelTests: XCTestCase {
     private var captures: GRDBCaptureStore!
     private var appState: GRDBAppStateStore!
+    private var folders: GRDBFolderStore!
     private var finished = false
 
     override func setUp() async throws {
         let database = try AppDatabase.makeInMemory()
         captures = GRDBCaptureStore(database: database)
         appState = GRDBAppStateStore(database: database)
+        folders = GRDBFolderStore(database: database)
         finished = false
     }
 
@@ -154,6 +156,7 @@ final class OnboardingViewModelTests: XCTestCase {
             library: library,
             syncService: ScreenshotSyncService(library: library, captureStore: captures),
             captureStore: captures,
+            folderStore: folders,
             appStateStore: appState,
             analysisQueueService: AnalysisQueueService(
                 captureStore: captures, contentAnalysisService: contentAnalysisService, appStateStore: appState)

@@ -1,16 +1,21 @@
 import Observation
 
-// 화면설계서 HOME-01의 첫 단계: 접근 가능한 스크린샷 수와 분석 진행 상태만 보여준다.
-// 검색·폴더 카드는 아직 없다.
+// 화면설계서 HOME-01: 접근 가능한 스크린샷 수·분석 진행 상태에 이어 2열 폴더 카드(전체/미분류/
+// 사용자 폴더)까지 보여준다. 검색창(§7.1 상단 큰 검색영역)은 아직 없다 — BROWSE-01 하단
+// 검색창만 있다(사용자 결정, 2026-09-22).
 @MainActor @Observable
 final class HomeViewModel {
     private(set) var progress: AnalysisProgress?
     private(set) var authorization: PhotoAuthorization
     private(set) var errorMessage: String?
+    private(set) var folders: [Folder] = []
+    private(set) var unclassifiedCount = 0
+    private var folderCounts: [String: Int] = [:]
 
     private let library: any ScreenshotLibrary
     private let syncService: ScreenshotSyncService
     private let captureStore: any CaptureStoring
+    private let folderStore: any FolderStoring
     private let appStateStore: any AppStateStoring
     private let analysisQueueService: AnalysisQueueService
 
@@ -18,25 +23,35 @@ final class HomeViewModel {
         library: any ScreenshotLibrary,
         syncService: ScreenshotSyncService,
         captureStore: any CaptureStoring,
+        folderStore: any FolderStoring,
         appStateStore: any AppStateStoring,
         analysisQueueService: AnalysisQueueService
     ) {
         self.library = library
         self.syncService = syncService
         self.captureStore = captureStore
+        self.folderStore = folderStore
         self.appStateStore = appStateStore
         self.analysisQueueService = analysisQueueService
         self.authorization = library.authorization
     }
 
-    /// 앱 실행·복귀 시 새 캡처를 확인하고 진행 상태를 다시 읽는다 (PHOTO-04). ON-03에서 분석
-    /// 시작에 동의했다면 pending 캡처 자동 분석 큐를 깨우고, 큐가 도는 동안 진행률을 갱신한다.
+    /// 소속 캡처가 0장인 폴더는 fetchFolderCaptureCounts() 결과에 키 자체가 없다.
+    func count(for folder: Folder) -> Int {
+        folderCounts[folder.id] ?? 0
+    }
+
+    /// 앱 실행·복귀 시 새 캡처를 확인하고 진행 상태·폴더 카드를 다시 읽는다 (PHOTO-04). ON-03에서
+    /// 분석 시작에 동의했다면 pending 캡처 자동 분석 큐를 깨우고, 큐가 도는 동안 진행률을 갱신한다.
     func refresh() async {
         authorization = library.authorization
         errorMessage = nil
         do {
             _ = try await syncService.sync()
             progress = try await captureStore.currentProgress()
+            folders = try await folderStore.fetchAll()
+            folderCounts = try await captureStore.fetchFolderCaptureCounts()
+            unclassifiedCount = try await captureStore.unclassifiedCount()
         } catch {
             errorMessage = "스크린샷을 확인하지 못했어요."
         }

@@ -19,8 +19,8 @@ actor SearchService {
     }
 
     /// 빈 검색어는 호출하지 않는다 — SEARCH-06: 빈 검색어는 AI 요청 없이 로컬 전체 탐색(이미
-    /// BrowseViewModel.load()가 그 역할을 한다).
-    func search(query: String) async throws -> [Capture] {
+    /// BrowseViewModel.load()가 그 역할을 한다). folderID가 있으면 그 폴더 범위로만 검색한다(SEARCH-04).
+    func search(query: String, folderID: String?) async throws -> [Capture] {
         guard let embeddingModelVersion = try await captureStore.currentEmbeddingModelVersion() else {
             return [] // 분석 완료된 캡처가 아직 하나도 없음 — 검색 대상 자체가 없다(SEARCH-08).
         }
@@ -30,7 +30,7 @@ actor SearchService {
             embeddingModelVersion: embeddingModelVersion, credential: credential
         )
         let candidates = try await captureStore.fetchSearchCandidates(
-            capturedFrom: prepared.capturedFrom, capturedBefore: prepared.capturedBefore
+            capturedFrom: prepared.capturedFrom, capturedBefore: prepared.capturedBefore, folderID: folderID
         )
         return SearchRanking.rank(candidates, lexicalTerms: prepared.lexicalTerms, queryEmbedding: prepared.embedding)
     }

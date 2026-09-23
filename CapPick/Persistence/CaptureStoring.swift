@@ -42,11 +42,21 @@ protocol CaptureStoring: Sendable {
     func resetStuckProcessing() async throws
 
     /// 검색 후보: 분석이 끝나(searchDocument가 있는) 접근 가능·제외 안 된 캡처. capturedFrom/Before로
-    /// 캡처 시각 구간을 좁힌다(둘 다 nil이면 전체 기간). 최근 캡처부터.
-    func fetchSearchCandidates(capturedFrom: Date?, capturedBefore: Date?) async throws -> [SearchCandidate]
+    /// 캡처 시각 구간을, folderID로 그 폴더에 실제 소속(present)된 캡처만으로 좁힌다(SEARCH-04,
+    /// 전부 nil이면 전체 기간·전체 범위). 최근 캡처부터.
+    func fetchSearchCandidates(capturedFrom: Date?, capturedBefore: Date?, folderID: String?) async throws -> [SearchCandidate]
 
     /// 로컬에 저장된 임베딩의 모델 버전. 지금은 서버 설정이 고정이라 분석 완료된 캡처는 전부 같은
     /// 버전일 거라고 가정하고 아무거나 하나를 돌려준다 — 분석된 캡처가 하나도 없으면 nil(검색
     /// 자체가 의미 없음).
     func currentEmbeddingModelVersion() async throws -> String?
+
+    /// "미분류" 개수만 필요할 때(HOME-01 카드) 전체 목록을 안 가져오고 센다. fetchUnclassified()와
+    /// 같은 규칙(ERD §3)을 COUNT(*)로 구현한다.
+    func unclassifiedCount() async throws -> Int
+
+    /// 폴더별 present·visible(접근 가능·제외 안 됨) 캡처 개수를 한 번의 쿼리로 — HOME-01 카드
+    /// N개를 그릴 때 폴더마다 따로 세지 않는다. 소속 캡처가 0장인 폴더는 결과에서 아예 빠진다
+    /// (호출하는 쪽이 없는 키를 0으로 취급).
+    func fetchFolderCaptureCounts() async throws -> [String: Int]
 }

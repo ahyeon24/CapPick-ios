@@ -13,10 +13,10 @@ XcodeGen 스캐폴딩 + `Models/`에 ERD v0.2 §2 로컬 엔터티를 그대로 
 
 **서버 통신도 연결돼 있다.** `Networking/`이 `CapPick-server`의 설치 검증 3개 엔드포인트를 실제로 호출하고, 앱이 로컬 DB와는 별개로 Keychain에 자격을 저장한다 — 자세한 내용은 아래 "설치 자격" 절 참고. **실제로 시뮬레이터에서 서버(로컬 `bootRun`)에 등록되는 것까지 확인했다** — 로그인 화면 없이 백그라운드에서 조용히 일어난다.
 
-**BROWSE-01의 "빈 검색어" 흐름과 실제 검색(SEARCH-01·02·03·06·08·09)이 있다** — 검색어가 없으면 접근 가능한 캡처 전체를 최근순 2열 그리드로 보여준다(`Features/Browse`). 미분석(pending) 캡처도 함께 보인다(SEARCH-06). 썸네일은 `Services/ThumbnailLoading`(`PhotosThumbnailLoader`)이 `PHImageManager`로 가져온다. 지금은 정사각형 균일 그리드다 — 화면설계서가 요구하는 "이미지 비율에 따라 높이가 다른" masonry 배치는 다음 단계다(각 셀 코드에 명시해둠). `HomeView`에 "전체 보기" 버튼으로 진입한다.
+**BROWSE-01의 "빈 검색어" 흐름과 실제 검색(SEARCH-01·02·03·06·08·09)이 있다** — 검색어가 없으면 접근 가능한 캡처 전체를 최근순 2열 그리드로 보여준다(`Features/Browse`). 미분석(pending) 캡처도 함께 보인다(SEARCH-06). 썸네일은 `Services/ThumbnailLoading`(`PhotosThumbnailLoader`)이 `PHImageManager`로 가져온다. 지금은 정사각형 균일 그리드다 — 화면설계서가 요구하는 "이미지 비율에 따라 높이가 다른" masonry 배치는 다음 단계다(각 셀 코드에 명시해둠). `HomeView`의 폴더 카드(아래 "폴더 기능" 절)나 FOLDER-01 행을 눌러 진입한다.
 
-**검색은 BROWSE-01 하단 검색창(전체 범위)만 있다 — HOME-01 상단 큰 검색영역은 이번엔 안 넣었다(사용자 결정).** `Networking/SearchAPIClient`(서버 `/v1/search/prepare` 호출, Job 아님 — 동기 요청/응답)가 자연어 질의를 해석·임베딩만 받아오고, `Services/SearchRanking`(순수 함수)이 로컬 DB에서 키워드(lexicalTerms가 OCR/searchText에 포함)+코사인 유사도를 단순 합산해 정렬한다 — 결합 방식은 기능명세서 자체가 "샘플 평가 후 결정"이라 명시한 미정 항목이라 잠정치다. `Services/SearchService`(actor)가 이 둘을 조합한다. `BrowseViewModel.search()`가 요청마다 UUID를 발급해 스테일 가드(SEARCH-09: 늦게 끝난 이전 요청이 최신 결과를 덮어쓰지 않게)를 구현한다. 폴더 범위 검색(SEARCH-04·05)은 FOLDER-* 화면이 아직 없어서 없다.
-- `GRDBCaptureStore.fetchSearchCandidates(capturedFrom:capturedBefore:)`가 `capture`+`captureAnalysis`+`searchDocument` 3-way join으로 후보를 가져온다 — 분석 안 된 캡처는 애초에 후보가 아니다(INNER JOIN).
+**검색은 BROWSE-01 하단 검색창에 있다 — HOME-01 상단 큰 검색영역은 이번엔 안 넣었다(사용자 결정).** `Networking/SearchAPIClient`(서버 `/v1/search/prepare` 호출, Job 아님 — 동기 요청/응답)가 자연어 질의를 해석·임베딩만 받아오고, `Services/SearchRanking`(순수 함수)이 로컬 DB에서 키워드(lexicalTerms가 OCR/searchText에 포함)+코사인 유사도를 단순 합산해 정렬한다 — 결합 방식은 기능명세서 자체가 "샘플 평가 후 결정"이라 명시한 미정 항목이라 잠정치다. `Services/SearchService`(actor)가 이 둘을 조합한다. `BrowseViewModel.search()`가 요청마다 UUID를 발급해 스테일 가드(SEARCH-09: 늦게 끝난 이전 요청이 최신 결과를 덮어쓰지 않게)를 구현한다. **폴더 범위 검색(SEARCH-04)은 폴더 기능과 함께 붙었다** — `BrowseScope`가 `.folder`면 `search()`가 `folderID`를 같이 넘긴다.
+- `GRDBCaptureStore.fetchSearchCandidates(capturedFrom:capturedBefore:folderID:)`가 `capture`+`captureAnalysis`+`searchDocument`(+`folderID`가 있으면 `folderCapture`까지) join으로 후보를 가져온다 — 분석 안 된 캡처는 애초에 후보가 아니다(INNER JOIN).
 - `GRDBCaptureStore.currentEmbeddingModelVersion()`은 지금 서버 설정이 고정이라 분석 완료된 캡처는 전부 같은 임베딩 모델 버전일 거라고 가정하고 아무거나 하나를 돌려준다 — 하나도 없으면 nil이고, 이때 `SearchService`는 서버에 요청조차 안 보내고 바로 빈 결과를 돌려준다(검색 대상 자체가 없으므로).
 
 **AI 분석 자동 큐가 붙어있다.** `Networking/JobAPIClient`(서버 `/v1/jobs` 제출·폴링)와
@@ -31,12 +31,42 @@ ON-03에서 동의한 뒤 pending 캡처를 **최근 것부터 순서대로 자�
 아니라 **failed 캡처를 사용자가 직접 재시도**하는 용도(`arrow.clockwise` 아이콘)로 좁혀졌고
 `BrowseViewModel`도 같은 방식으로 큐 진행을 폴링해 배지를 갱신한다.
 
-**아직 없는 것**: 폴더 화면(FOLDER-*, DETAIL-*)과 그에 따른 폴더 범위 검색(SEARCH-04·05),
-HOME-01 상단 큰 검색영역, masonry 그리드, 앱이 완전히 백그라운드로 전환됐을 때도 도는 진짜
-백그라운드 처리(BGProcessingTask) — 지금은 포그라운드에서만 순차 처리하고 멈추면 다음 포그라운드
-진입 시 이어간다. 실패 이유를 "사진 접근/네트워크/사용량 한도"처럼 세분화해 보여주는 것(AI-06)도
-아직이다 — 지금은 실패했다는 사실과 재시도 버튼만 있다. ON-03의 AI 처리 안내 문구는 임시이며
-공급자 선정 후 확정해야 한다.
+**폴더 기능이 붙었다 (2026-09-23)** — `Features/Folder/`에 FOLDER-01(`FolderListView`·`FolderListViewModel`,
+전체·미분류 시스템 행 + 사용자 폴더 목록·삭제·수정 진입)과 FOLDER-02(`FolderEditView`·`FolderEditViewModel`,
+생성·이름/기준 수정 시트)가 있고, HOME-01은 이제 2열 폴더 카드(전체/미분류/사용자 폴더, 각각
+`captureStore.fetchFolderCaptureCounts()`/`unclassifiedCount()`로 개수 표시)를 보여준다.
+`FolderStoring`(전 세션에 이미 구현·테스트돼 있던 `save`/`fetchAll`/`delete`/`addManually`/
+`removeManually`/`applyAutoMatch`)을 그대로 재사용했고, 새로 만든 건 UI와 카운트 조회 쿼리뿐이다.
+
+- **`BrowseScope`**(`Features/Browse/BrowseViewModel.swift`) — `.all`/`.unclassified`/`.folder(Folder)`.
+  `BrowseView`가 어디서 들어왔든(Home 카드, FOLDER-01 행) 같은 화면을 재사용하고, `load()`/`search()`
+  둘 다 scope를 따른다.
+- **MEMBER-01은 "한 장" 케이스만 있다** — 다중 선택 없이 `CaptureThumbnailView`의 `.contextMenu`로
+  "폴더에 추가"(모든 폴더 서브메뉴, 이미 소속돼 있어도 다시 눌러도 안전) / "이 폴더에서 제거"
+  (scope가 `.folder`일 때만) 두 동작뿐이다.
+- **`Folder.criteriaState`는 항상 `.pending`으로 저장한다** — RECLASS-01, AI 자동 분류(AI-03)와
+  그걸 실행할 `folder_criteria`/`classification` Job kind 자체가 서버에 없어서, 분류 기준 텍스트는
+  지금은 그냥 사용자가 적어두는 메모일 뿐 아무것도 처리하지 않는다. 다만 `criteriaVersion`은
+  기준이 실제로 바뀔 때만 올리도록 이미 맞춰뒀다(이름만 바꾸면 그대로) — 나중에 그 Job이 생겼을
+  때 쓸 값이 지금부터 정확히 쌓이게 하려는 것.
+- **폴더 이름 중복·길이 제한 없음** — 화면설계서가 스스로 "미정"이라고 한 항목이라 공백 이름만 막는다.
+- BROWSE-01 안에서 폴더를 바로 전환하는 가로 스크롤 줄(화면설계서 §7.3)은 없다 — 폴더 전환은
+  Home/FOLDER-01로 돌아가 다시 들어가는 것으로 대신한다.
+
+**아직 없는 것**: DETAIL-01(캡처 상세), RECLASS-01·AI 자동 분류(AI-03, folder_criteria/classification
+Job kind가 서버에 없음), HOME-01 상단 큰 검색영역, BROWSE-01 폴더 전환 줄, masonry 그리드, 앱이
+완전히 백그라운드로 전환됐을 때도 도는 진짜 백그라운드 처리(BGProcessingTask) — 지금은 포그라운드
+에서만 순차 처리하고 멈추면 다음 포그라운드 진입 시 이어간다. 실패 이유를 "사진 접근/네트워크/
+사용량 한도"처럼 세분화해 보여주는 것(AI-06)도 아직이다 — 지금은 실패했다는 사실과 재시도 버튼만
+있다. ON-03의 AI 처리 안내 문구는 임시이며 공급자 선정 후 확정해야 한다.
+
+**검증 이력 (2026-09-23, 폴더 기능 추가 후)**: 테스트 104개(신규 `FolderListViewModelTests` 3개,
+`FolderEditViewModelTests` 5개, `BrowseViewModelTests`에 scope·폴더 추가/제거·폴더 범위 검색 5개,
+`PersistenceTests`에 카운트·폴더 범위 검색 저장소 메서드 3개) 전부 통과. 시뮬레이터에서 실제로
+Home 카드→폴더 생성("+ 새 폴더")→롱프레스로 캡처를 폴더에 추가→같은 캡처를 폴더에서 제거까지
+사용자가 직접 다 해봤고, 로컬 DB로 `folder.membershipRevision`과 `folderCapture.revision`이
+`GRDBFolderStore.writeMembership`이 정확히 예상한 값(추가·추가·제거 순서로 3)까지 맞는 것을
+교차 확인했다.
 
 **검증 이력 (2026-09-22, 자동 큐 추가 후)**: 테스트 72개(신규 `AnalysisQueueServiceTests` 6개,
 `PersistenceTests`에 큐 저장소 메서드 4개, `CaptureStoring` 프로토콜에 4개 메서드 추가) 전부 통과.

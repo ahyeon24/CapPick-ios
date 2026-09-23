@@ -190,7 +190,7 @@ final class PersistenceTests: XCTestCase {
         try await captures.save(makeCapture("pending", capturedAt: 2_000, searchState: .pending))
         try await captures.save(makeCapture("failed", capturedAt: 3_000, searchState: .failed))
 
-        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil)
+        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil, folderID: nil)
 
         XCTAssertEqual(candidates.map(\.capture.id), ["analyzed"])
         XCTAssertEqual(candidates.first?.ocrText, "면접 질문")
@@ -205,7 +205,7 @@ final class PersistenceTests: XCTestCase {
         try await captures.save(makeCapture("excluded", excluded: true, searchState: .ready))
         try await saveAnalysis(for: "excluded")
 
-        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil)
+        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil, folderID: nil)
 
         XCTAssertEqual(candidates.map(\.capture.id), ["visible"])
     }
@@ -221,7 +221,8 @@ final class PersistenceTests: XCTestCase {
         try await saveAnalysis(for: "atEnd")
 
         let candidates = try await captures.fetchSearchCandidates(
-            capturedFrom: Date(timeIntervalSince1970: 1_000), capturedBefore: Date(timeIntervalSince1970: 2_000))
+            capturedFrom: Date(timeIntervalSince1970: 1_000), capturedBefore: Date(timeIntervalSince1970: 2_000),
+            folderID: nil)
 
         XCTAssertEqual(Set(candidates.map(\.capture.id)), ["atStart", "inRange"])
     }
@@ -241,6 +242,46 @@ final class PersistenceTests: XCTestCase {
         let version = try await captures.currentEmbeddingModelVersion()
 
         XCTAssertEqual(version, "gemini-embedding-001")
+    }
+
+    func testFetchSearchCandidatesFiltersByFolderScope() async throws {
+        try await captures.save(makeCapture("inFolder", searchState: .ready))
+        try await saveAnalysis(for: "inFolder")
+        try await captures.save(makeCapture("notInFolder", searchState: .ready))
+        try await saveAnalysis(for: "notInFolder")
+        try await folders.save(makeFolder("f1"))
+        try await folders.addManually(captureID: "inFolder", to: "f1")
+
+        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil, folderID: "f1")
+
+        XCTAssertEqual(candidates.map(\.capture.id), ["inFolder"])
+    }
+
+    func testUnclassifiedCountMatchesFetchUnclassifiedCount() async throws {
+        try await captures.save(makeCapture("target"))
+        try await captures.save(makeCapture("searchPending", searchState: .pending))
+        try await captures.save(makeCapture("excluded", excluded: true))
+
+        let count = try await captures.unclassifiedCount()
+
+        XCTAssertEqual(count, 1)
+    }
+
+    func testFetchFolderCaptureCountsOnlyCountsPresentVisibleMemberships() async throws {
+        try await captures.save(makeCapture("shown"))
+        try await captures.save(makeCapture("removed"))
+        try await captures.save(makeCapture("excluded", excluded: true))
+        try await folders.save(makeFolder("f1"))
+        try await folders.save(makeFolder("empty"))
+        try await folders.addManually(captureID: "shown", to: "f1")
+        try await folders.addManually(captureID: "removed", to: "f1")
+        try await folders.removeManually(captureID: "removed", from: "f1")
+        try await folders.addManually(captureID: "excluded", to: "f1")
+
+        let counts = try await captures.fetchFolderCaptureCounts()
+
+        XCTAssertEqual(counts["f1"], 1)
+        XCTAssertNil(counts["empty"], "소속 캡처가 0장인 폴더는 결과에 키가 없어야 한다")
     }
 
     func testProgressIsZeroWhenNoCaptures() async throws {

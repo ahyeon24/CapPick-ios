@@ -34,10 +34,12 @@ struct RootView: View {
                     library: environment.library,
                     syncService: environment.syncService,
                     captureStore: environment.captureStore,
+                    folderStore: environment.folderStore,
                     appStateStore: environment.appStateStore,
                     analysisQueueService: environment.analysisQueueService
                 ),
                 captureStore: environment.captureStore,
+                folderStore: environment.folderStore,
                 thumbnailLoader: environment.thumbnailLoader,
                 analysisQueueService: environment.analysisQueueService,
                 searchService: environment.searchService

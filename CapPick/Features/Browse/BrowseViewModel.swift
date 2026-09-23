@@ -1,13 +1,34 @@
 import Foundation
 import Observation
 
-// 화면설계서 BROWSE-01. 검색어가 비어있으면 선택 범위(지금은 전체)를 최근순으로 보여주고
-// (SEARCH-06 — 미분석 이미지도 탐색 가능해야 해서 fetchAll()을 그대로 쓴다, 검색 준비 상태로
-// 거르지 않는다), 검색어를 실행하면 SearchService가 결과를 대신 정렬해서 준다. 폴더 범위 검색
-// (SEARCH-04·05)은 FOLDER-* 화면이 아직 없어서 이번엔 없다 — 항상 전체 범위.
+// 화면설계서 BROWSE-01이 보여줄 범위 — Home 카드나 FOLDER-01 행을 눌러 들어온다. 폴더 전환은
+// 이 화면 안에서 하지 않고(§7.3의 가로 폴더 줄은 이번엔 없음) Home/FOLDER-01로 돌아가 다시
+// 들어가는 것으로 대신한다.
+enum BrowseScope: Equatable {
+    case all
+    case unclassified
+    case folder(Folder)
+
+    var folderID: String? {
+        if case .folder(let folder) = self { folder.id } else { nil }
+    }
+
+    var title: String {
+        switch self {
+        case .all: "전체"
+        case .unclassified: "미분류"
+        case .folder(let folder): folder.displayName
+        }
+    }
+}
+
+// 검색어가 비어있으면 scope의 최근순 목록을 보여주고(SEARCH-06 — 미분석 이미지도 탐색 가능해야
+// 해서 분류 준비 상태로 거르지 않는다), 검색어를 실행하면 SearchService가 같은 scope 범위 안에서
+// 결과를 대신 정렬해서 준다(SEARCH-04).
 @MainActor @Observable
 final class BrowseViewModel {
     private(set) var captures: [Capture] = []
+    private(set) var folders: [Folder] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     private(set) var analyzingCaptureIDs: Set<String> = []
@@ -16,14 +37,21 @@ final class BrowseViewModel {
     private(set) var isSearchActive = false
     var searchText = ""
 
+    let scope: BrowseScope
     private let captureStore: any CaptureStoring
+    private let folderStore: any FolderStoring
     private let analysisQueueService: AnalysisQueueService
     private let searchService: SearchService
     /// SEARCH-09: 늦게 끝난 이전 검색 요청이 최신 검색어의 결과를 덮어쓰지 않게 하는 가드.
     private var latestSearchRequestID: UUID?
 
-    init(captureStore: any CaptureStoring, analysisQueueService: AnalysisQueueService, searchService: SearchService) {
+    init(
+        scope: BrowseScope, captureStore: any CaptureStoring, folderStore: any FolderStoring,
+        analysisQueueService: AnalysisQueueService, searchService: SearchService
+    ) {
+        self.scope = scope
         self.captureStore = captureStore
+        self.folderStore = folderStore
         self.analysisQueueService = analysisQueueService
         self.searchService = searchService
     }
@@ -33,9 +61,18 @@ final class BrowseViewModel {
         defer { isLoading = false }
         errorMessage = nil
         do {
-            captures = try await captureStore.fetchAll()
+            captures = try await fetchScopedCaptures()
+            folders = try await folderStore.fetchAll()
         } catch {
             errorMessage = "캡처를 불러오지 못했어요."
+        }
+    }
+
+    private func fetchScopedCaptures() async throws -> [Capture] {
+        switch scope {
+        case .all: try await captureStore.fetchAll()
+        case .unclassified: try await captureStore.fetchUnclassified()
+        case .folder(let folder): try await captureStore.fetch(in: folder)
         }
     }
 
@@ -54,7 +91,7 @@ final class BrowseViewModel {
             if latestSearchRequestID == requestID { isLoading = false }
         }
         do {
-            let results = try await searchService.search(query: query)
+            let results = try await searchService.search(query: query, folderID: scope.folderID)
             guard latestSearchRequestID == requestID else { return } // 이미 더 최신 요청이 있음
             captures = results
             isSearchActive = true
@@ -64,7 +101,7 @@ final class BrowseViewModel {
         }
     }
 
-    /// 검색어를 지우면(SEARCH-*: "검색어 지우기") 최근순 전체 탐색으로 돌아간다 — 네트워크 요청 없음.
+    /// 검색어를 지우면(SEARCH-*: "검색어 지우기") scope의 최근순 목록으로 돌아간다 — 네트워크 요청 없음.
     func clearSearch() async {
         latestSearchRequestID = nil
         isSearchActive = false
@@ -84,6 +121,30 @@ final class BrowseViewModel {
             await load()
         } catch {
             errorMessage = "분석에 실패했어요: \(error)"
+        }
+    }
+
+    /// MEMBER-01의 "한 장" 케이스(FOLDER-03) — 썸네일 컨텍스트 메뉴에서 부른다. 이미 그 폴더에
+    /// 있어도 다시 불러도 안전하다(present로 덮어쓸 뿐 — GRDBFolderStore.addManually 참고).
+    func addToFolder(_ capture: Capture, folderID: String) async {
+        errorMessage = nil
+        do {
+            try await folderStore.addManually(captureID: capture.id, to: folderID)
+        } catch {
+            errorMessage = "폴더에 추가하지 못했어요."
+        }
+    }
+
+    /// 폴더 범위(scope == .folder)에서 보고 있을 때만 의미가 있다 — 지금 보고 있는 그 폴더에서
+    /// 뺀다. 성공하면 다시 불러서 그리드에서 사라지게 한다(fetch(in:)가 present만 반환).
+    func removeFromCurrentFolder(_ capture: Capture) async {
+        guard let folderID = scope.folderID else { return }
+        errorMessage = nil
+        do {
+            try await folderStore.removeManually(captureID: capture.id, from: folderID)
+            await load()
+        } catch {
+            errorMessage = "폴더에서 제거하지 못했어요."
         }
     }
 

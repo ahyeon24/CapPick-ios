@@ -1,7 +1,8 @@
 import SwiftUI
 
-// 화면설계서 BROWSE-01. 폴더 범위 전환(SEARCH-04·05)은 FOLDER-* 화면이 아직 없어서 없다 — 검색은
-// 항상 전체 범위다. 정렬 옵션도 아직 없다(항상 관련도순 또는 최근순).
+// 화면설계서 BROWSE-01. 화면 안에서 폴더를 바로 전환하는 가로 스크롤 줄(§7.3)은 이번엔 없다 —
+// 폴더 전환은 Home/FOLDER-01로 돌아가 다시 들어가는 것으로 대신한다. 정렬 옵션도 아직 없다
+// (항상 관련도순 또는 최근순).
 struct BrowseView: View {
     @State private var viewModel: BrowseViewModel
     private let thumbnailLoader: any ThumbnailLoading
@@ -29,7 +30,12 @@ struct BrowseView: View {
                             capture: capture,
                             thumbnailLoader: thumbnailLoader,
                             isAnalyzing: viewModel.analyzingCaptureIDs.contains(capture.id),
-                            onRetryTapped: { Task { await viewModel.retry(capture) } }
+                            onRetryTapped: { Task { await viewModel.retry(capture) } },
+                            folders: viewModel.folders,
+                            onAddToFolder: { folder in Task { await viewModel.addToFolder(capture, folderID: folder.id) } },
+                            onRemoveFromCurrentFolder: viewModel.scope.folderID == nil
+                                ? nil
+                                : { Task { await viewModel.removeFromCurrentFolder(capture) } }
                         )
                     }
                 }
@@ -41,7 +47,7 @@ struct BrowseView: View {
                 Text(message).foregroundStyle(.red).padding(.top, 24)
             }
         }
-        .navigationTitle(viewModel.isSearchActive ? "검색 결과" : "전체")
+        .navigationTitle(viewModel.isSearchActive ? "검색 결과" : viewModel.scope.title)
         .safeAreaInset(edge: .bottom) {
             searchBar(viewModel: $viewModel)
         }

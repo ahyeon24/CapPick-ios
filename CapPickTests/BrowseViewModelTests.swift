@@ -58,7 +58,7 @@ final class BrowseViewModelTests: XCTestCase {
             contentRevision: 1, searchState: .ready, classificationState: .complete
         ))
         let viewModel = BrowseViewModel(
-            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database), analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
             searchService: try makeSearchService(captureStore: store))
 
         await viewModel.load()
@@ -72,7 +72,7 @@ final class BrowseViewModelTests: XCTestCase {
         let database = try AppDatabase.makeInMemory()
         let store = GRDBCaptureStore(database: database)
         let viewModel = BrowseViewModel(
-            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database), analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
             searchService: try makeSearchService(captureStore: store))
 
         await viewModel.load()
@@ -92,7 +92,7 @@ final class BrowseViewModelTests: XCTestCase {
         )
         try await store.save(capture)
         let viewModel = BrowseViewModel(
-            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database), analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
             searchService: try makeSearchService(captureStore: store))
         await viewModel.load()
         XCTAssertEqual(viewModel.captures.first?.searchState, .failed)
@@ -126,7 +126,7 @@ final class BrowseViewModelTests: XCTestCase {
             normalizedQuery: "면접", lexicalTerms: ["면접"], embedding: [],
             embeddingModelVersion: "v1", capturedFrom: nil, capturedBefore: nil, dateInterpretation: nil)
         let viewModel = BrowseViewModel(
-            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database), analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
             searchService: try makeSearchService(captureStore: store, searchAPIClient: fakeClient))
         await viewModel.load()
 
@@ -146,7 +146,7 @@ final class BrowseViewModelTests: XCTestCase {
             contentRevision: 1, searchState: .pending, classificationState: .pending
         ))
         let viewModel = BrowseViewModel(
-            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database), analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
             searchService: try makeSearchService(captureStore: store))
         await viewModel.load()
         viewModel.searchText = "아무 검색어"
@@ -187,7 +187,7 @@ final class BrowseViewModelTests: XCTestCase {
             embeddingModelVersion: "v1", capturedFrom: nil, capturedBefore: nil, dateInterpretation: nil)
 
         let viewModel = BrowseViewModel(
-            captureStore: store, analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database), analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
             searchService: try makeSearchService(captureStore: store, searchAPIClient: fakeClient))
 
         viewModel.searchText = "old query"
@@ -198,5 +198,154 @@ final class BrowseViewModelTests: XCTestCase {
         _ = await staleTask.value // 뒤늦게 끝나는 "old query" 응답도 처리시킨다
 
         XCTAssertEqual(viewModel.captures.map(\.id), ["forNew"], "늦게 도착한 이전 검색 결과가 최신 결과를 덮어쓰면 안 된다")
+    }
+
+    func testLoadWithUnclassifiedScopeShowsOnlyUnclassifiedCaptures() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        let folderStore = GRDBFolderStore(database: database)
+        try await store.save(Capture(
+            id: "unclassified", photoAssetID: "a", capturedAt: Date(timeIntervalSince1970: 1_000),
+            width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+            contentRevision: 1, searchState: .ready, classificationState: .complete
+        ))
+        try await store.save(Capture(
+            id: "inFolder", photoAssetID: "b", capturedAt: Date(timeIntervalSince1970: 2_000),
+            width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+            contentRevision: 1, searchState: .ready, classificationState: .complete
+        ))
+        try await folderStore.save(Folder(
+            id: "f1", displayName: "폴더", criteriaText: nil, criteriaVersion: 1,
+            criteriaState: .pending, membershipRevision: 0))
+        try await folderStore.addManually(captureID: "inFolder", to: "f1")
+
+        let viewModel = BrowseViewModel(
+            scope: .unclassified, captureStore: store, folderStore: folderStore,
+            analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            searchService: try makeSearchService(captureStore: store))
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.captures.map(\.id), ["unclassified"])
+    }
+
+    func testLoadWithFolderScopeShowsOnlyThatFoldersCaptures() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        let folderStore = GRDBFolderStore(database: database)
+        try await store.save(Capture(
+            id: "inFolder", photoAssetID: "a", capturedAt: Date(timeIntervalSince1970: 1_000),
+            width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+            contentRevision: 1, searchState: .ready, classificationState: .complete
+        ))
+        try await store.save(Capture(
+            id: "outside", photoAssetID: "b", capturedAt: Date(timeIntervalSince1970: 2_000),
+            width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+            contentRevision: 1, searchState: .ready, classificationState: .complete
+        ))
+        let folder = Folder(
+            id: "f1", displayName: "폴더", criteriaText: nil, criteriaVersion: 1,
+            criteriaState: .pending, membershipRevision: 0)
+        try await folderStore.save(folder)
+        try await folderStore.addManually(captureID: "inFolder", to: "f1")
+
+        let viewModel = BrowseViewModel(
+            scope: .folder(folder), captureStore: store, folderStore: folderStore,
+            analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            searchService: try makeSearchService(captureStore: store))
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.captures.map(\.id), ["inFolder"])
+    }
+
+    func testAddToFolderAddsCaptureToFolder() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        let folderStore = GRDBFolderStore(database: database)
+        let capture = Capture(
+            id: "c1", photoAssetID: "a", capturedAt: Date(timeIntervalSince1970: 1_000),
+            width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+            contentRevision: 1, searchState: .ready, classificationState: .complete
+        )
+        try await store.save(capture)
+        try await folderStore.save(Folder(
+            id: "f1", displayName: "폴더", criteriaText: nil, criteriaVersion: 1,
+            criteriaState: .pending, membershipRevision: 0))
+        let viewModel = BrowseViewModel(
+            scope: .all, captureStore: store, folderStore: folderStore,
+            analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            searchService: try makeSearchService(captureStore: store))
+
+        await viewModel.addToFolder(capture, folderID: "f1")
+
+        let memberships = try await folderStore.fetchMemberships(of: "f1")
+        XCTAssertEqual(memberships.map(\.captureID), ["c1"])
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testRemoveFromCurrentFolderRemovesCaptureWhenScopedToFolder() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        let folderStore = GRDBFolderStore(database: database)
+        let capture = Capture(
+            id: "c1", photoAssetID: "a", capturedAt: Date(timeIntervalSince1970: 1_000),
+            width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+            contentRevision: 1, searchState: .ready, classificationState: .complete
+        )
+        try await store.save(capture)
+        let folder = Folder(
+            id: "f1", displayName: "폴더", criteriaText: nil, criteriaVersion: 1,
+            criteriaState: .pending, membershipRevision: 0)
+        try await folderStore.save(folder)
+        try await folderStore.addManually(captureID: "c1", to: "f1")
+        let viewModel = BrowseViewModel(
+            scope: .folder(folder), captureStore: store, folderStore: folderStore,
+            analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            searchService: try makeSearchService(captureStore: store))
+        await viewModel.load()
+        XCTAssertEqual(viewModel.captures.map(\.id), ["c1"])
+
+        await viewModel.removeFromCurrentFolder(capture)
+
+        XCTAssertTrue(viewModel.captures.isEmpty)
+    }
+
+    func testSearchRespectsFolderScope() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        let folderStore = GRDBFolderStore(database: database)
+        try await store.save(Capture(
+            id: "inFolder", photoAssetID: "a", capturedAt: Date(timeIntervalSince1970: 1_000),
+            width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+            contentRevision: 1, searchState: .ready, classificationState: .complete
+        ))
+        try await saveAnalysis(store: store, captureID: "inFolder", ocrText: "면접 질문")
+        try await store.save(Capture(
+            id: "outside", photoAssetID: "b", capturedAt: Date(timeIntervalSince1970: 2_000),
+            width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+            contentRevision: 1, searchState: .ready, classificationState: .complete
+        ))
+        try await saveAnalysis(store: store, captureID: "outside", ocrText: "면접 질문")
+        let folder = Folder(
+            id: "f1", displayName: "폴더", criteriaText: nil, criteriaVersion: 1,
+            criteriaState: .pending, membershipRevision: 0)
+        try await folderStore.save(folder)
+        try await folderStore.addManually(captureID: "inFolder", to: "f1")
+
+        let fakeClient = FakeSearchAPIClient()
+        fakeClient.resultsByQuery["면접"] = SearchPrepared(
+            normalizedQuery: "면접", lexicalTerms: ["면접"], embedding: [],
+            embeddingModelVersion: "v1", capturedFrom: nil, capturedBefore: nil, dateInterpretation: nil)
+        let viewModel = BrowseViewModel(
+            scope: .folder(folder), captureStore: store, folderStore: folderStore,
+            analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            searchService: try makeSearchService(captureStore: store, searchAPIClient: fakeClient))
+
+        viewModel.searchText = "면접"
+        await viewModel.search()
+
+        // "outside"도 키워드는 일치하지만 폴더 범위 밖이라 결과에서 빠져야 한다(SEARCH-04).
+        XCTAssertEqual(viewModel.captures.map(\.id), ["inFolder"])
     }
 }

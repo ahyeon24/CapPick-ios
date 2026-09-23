@@ -158,7 +158,7 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
-    func fetchSearchCandidates(capturedFrom: Date?, capturedBefore: Date?) async throws -> [SearchCandidate] {
+    func fetchSearchCandidates(capturedFrom: Date?, capturedBefore: Date?, folderID: String?) async throws -> [SearchCandidate] {
         try await database.dbWriter.read { db in
             var sql = """
                 SELECT capture.*, captureAnalysis.ocrText AS ocrText, searchDocument.searchText AS searchText,
@@ -166,9 +166,14 @@ struct GRDBCaptureStore: CaptureStoring {
                 FROM capture
                 JOIN captureAnalysis ON captureAnalysis.captureID = capture.id
                 JOIN searchDocument ON searchDocument.captureID = capture.id
-                WHERE \(Self.visible)
                 """
             var arguments: [any DatabaseValueConvertible] = []
+            if let folderID {
+                // SEARCH-04: 폴더 범위 검색 — 그 폴더에 실제로 소속(present)된 캡처만.
+                sql += " JOIN folderCapture ON folderCapture.captureID = capture.id AND folderCapture.folderID = ? AND folderCapture.state = 'present'"
+                arguments.append(folderID)
+            }
+            sql += " WHERE \(Self.visible)"
             if let capturedFrom {
                 sql += " AND capture.capturedAt >= ?"
                 arguments.append(capturedFrom)
@@ -187,6 +192,38 @@ struct GRDBCaptureStore: CaptureStoring {
     func currentEmbeddingModelVersion() async throws -> String? {
         try await database.dbWriter.read { db in
             try String.fetchOne(db, sql: "SELECT embeddingModelVersion FROM searchDocument LIMIT 1")
+        }
+    }
+
+    func unclassifiedCount() async throws -> Int {
+        try await database.dbWriter.read { db in
+            try Int.fetchOne(db, sql: """
+                SELECT COUNT(*) FROM capture
+                WHERE \(Self.visible)
+                  AND capture.searchState = 'ready'
+                  AND capture.classificationState = 'complete'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM folderCapture
+                    WHERE folderCapture.captureID = capture.id AND folderCapture.state = 'present'
+                  )
+                """) ?? 0
+        }
+    }
+
+    func fetchFolderCaptureCounts() async throws -> [String: Int] {
+        try await database.dbWriter.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT folderCapture.folderID AS folderID, COUNT(*) AS count
+                FROM folderCapture
+                JOIN capture ON capture.id = folderCapture.captureID
+                WHERE folderCapture.state = 'present' AND \(Self.visible)
+                GROUP BY folderCapture.folderID
+                """)
+            return Dictionary(uniqueKeysWithValues: rows.map { (row: Row) in
+                let folderID: String = row["folderID"]
+                let count: Int = row["count"]
+                return (folderID, count)
+            })
         }
     }
 

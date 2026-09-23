@@ -10,6 +10,12 @@ struct CaptureThumbnailView: View {
     /// .processing(큐가 백그라운드에서 처리 중)과는 별개 — 둘 다 스피너로 보여준다.
     let isAnalyzing: Bool
     let onRetryTapped: () -> Void
+    /// MEMBER-01의 "한 장" 케이스(FOLDER-03) — 폴더 목록과 두 콜백만 받는다. 현재 소속 여부는
+    /// 미리 안 보여준다(addToFolder가 이미 소속돼도 안전해서 체크마크가 없어도 무해하다).
+    let folders: [Folder]
+    let onAddToFolder: (Folder) -> Void
+    /// nil이면 "이 폴더에서 제거" 메뉴 자체를 안 보여준다(폴더 범위로 보고 있을 때만 의미가 있다).
+    let onRemoveFromCurrentFolder: (() -> Void)?
 
     @State private var image: UIImage?
 
@@ -28,6 +34,18 @@ struct CaptureThumbnailView: View {
                 analysisBadge.padding(6)
             }
             .clipped()
+            .contextMenu {
+                if !folders.isEmpty {
+                    Menu("폴더에 추가") {
+                        ForEach(folders) { folder in
+                            Button(folder.displayName) { onAddToFolder(folder) }
+                        }
+                    }
+                }
+                if let onRemoveFromCurrentFolder {
+                    Button("이 폴더에서 제거", role: .destructive, action: onRemoveFromCurrentFolder)
+                }
+            }
             .task {
                 image = await thumbnailLoader.thumbnail(
                     for: capture.photoAssetID, targetSize: CGSize(width: 300, height: 300))
