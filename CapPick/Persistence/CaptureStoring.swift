@@ -59,4 +59,14 @@ protocol CaptureStoring: Sendable {
     /// N개를 그릴 때 폴더마다 따로 세지 않는다. 소속 캡처가 0장인 폴더는 결과에서 아예 빠진다
     /// (호출하는 쪽이 없는 키를 0으로 취급).
     func fetchFolderCaptureCounts() async throws -> [String: Int]
+
+    /// id로 캡처 하나. DETAIL-01이 목록에서 넘겨받은 값 대신 최신 상태로 다시 읽을 때 쓴다.
+    func fetchCapture(id: String) async throws -> Capture?
+
+    /// DETAIL-05 즐겨찾기 토글.
+    func setFavorite(_ captureID: String, favorite: Bool) async throws
+
+    /// DETAIL-06 캡픽에서 제외. Self.visible이 이미 excludedAt IS NULL을 요구하므로, 이후
+    /// fetchAll/fetch(in:)/fetchUnclassified/검색 후보 등 모든 조회에서 자동으로 빠진다.
+    func exclude(_ captureID: String, at date: Date) async throws
 }

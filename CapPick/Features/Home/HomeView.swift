@@ -45,6 +45,11 @@ struct HomeView: View {
                     Task { await viewModel.refresh() }
                 }
             }
+            .onAppear {
+                // BROWSE-01/DETAIL-01에서 캡픽 제외 등으로 돌아왔을 때 폴더 카드 개수를 새로
+                // 고친다 — pop으로 돌아오는 건 이 뷰를 다시 만들지 않아 .task가 재실행 안 된다.
+                Task { await viewModel.refresh() }
+            }
             .sheet(isPresented: $isCreatingFolder) {
                 FolderEditView(viewModel: FolderEditViewModel(
                     mode: .create, folderStore: folderStore, onSaved: { Task { await viewModel.refresh() } }))
@@ -109,7 +114,8 @@ struct HomeView: View {
                 viewModel: BrowseViewModel(
                     scope: scope, captureStore: captureStore, folderStore: folderStore,
                     analysisQueueService: analysisQueueService, searchService: searchService),
-                thumbnailLoader: thumbnailLoader
+                captureStore: captureStore, folderStore: folderStore,
+                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader
             )
         } label: {
             VStack(alignment: .leading, spacing: 4) {

@@ -284,6 +284,55 @@ final class PersistenceTests: XCTestCase {
         XCTAssertNil(counts["empty"], "소속 캡처가 0장인 폴더는 결과에 키가 없어야 한다")
     }
 
+    // MARK: - DETAIL-01 저장소 메서드
+
+    func testFetchCaptureReturnsCaptureOrNil() async throws {
+        try await captures.save(makeCapture("c1"))
+
+        let found = try await captures.fetchCapture(id: "c1")
+        let missing = try await captures.fetchCapture(id: "nope")
+
+        XCTAssertEqual(found?.id, "c1")
+        XCTAssertNil(missing)
+    }
+
+    func testSetFavoriteTogglesField() async throws {
+        try await captures.save(makeCapture("c1"))
+
+        try await captures.setFavorite("c1", favorite: true)
+        let afterSettingTrue = try await captures.fetchCapture(id: "c1")
+        XCTAssertEqual(afterSettingTrue?.favorite, true)
+
+        try await captures.setFavorite("c1", favorite: false)
+        let afterSettingFalse = try await captures.fetchCapture(id: "c1")
+        XCTAssertEqual(afterSettingFalse?.favorite, false)
+    }
+
+    func testExcludeSetsExcludedAtAndRemovesFromVisibleQueries() async throws {
+        try await captures.save(makeCapture("c1"))
+        let now = Date(timeIntervalSince1970: 5_000)
+
+        try await captures.exclude("c1", at: now)
+
+        let saved = try await captures.fetchCapture(id: "c1")
+        XCTAssertEqual(saved?.excludedAt, now)
+        let allCaptures = try await captures.fetchAll()
+        XCTAssertTrue(allCaptures.isEmpty, "제외된 캡처는 Self.visible 규칙으로 목록에서 빠져야 한다")
+    }
+
+    func testFetchFoldersContainingReturnsOnlyPresentMemberships() async throws {
+        try await captures.save(makeCapture("c1"))
+        try await folders.save(makeFolder("f1"))
+        try await folders.save(makeFolder("f2"))
+        try await folders.addManually(captureID: "c1", to: "f1")
+        try await folders.addManually(captureID: "c1", to: "f2")
+        try await folders.removeManually(captureID: "c1", from: "f2")
+
+        let containing = try await folders.fetchFolders(containing: "c1")
+
+        XCTAssertEqual(containing.map(\.id), ["f1"])
+    }
+
     func testProgressIsZeroWhenNoCaptures() async throws {
         let progress = try await captures.currentProgress()
         XCTAssertEqual(progress.total, 0)

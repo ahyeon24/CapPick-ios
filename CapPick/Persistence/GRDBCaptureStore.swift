@@ -227,6 +227,24 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
+    func fetchCapture(id: String) async throws -> Capture? {
+        try await database.dbWriter.read { db in
+            try Capture.fetchOne(db, key: id)
+        }
+    }
+
+    func setFavorite(_ captureID: String, favorite: Bool) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET favorite = ? WHERE id = ?", arguments: [favorite, captureID])
+        }
+    }
+
+    func exclude(_ captureID: String, at date: Date) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET excludedAt = ? WHERE id = ?", arguments: [date, captureID])
+        }
+    }
+
     func currentProgress() async throws -> AnalysisProgress {
         try await database.dbWriter.read { db in
             let row = try Row.fetchOne(db, sql: """

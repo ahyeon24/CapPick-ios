@@ -34,6 +34,16 @@ struct GRDBFolderStore: FolderStoring {
         }
     }
 
+    func fetchFolders(containing captureID: String) async throws -> [Folder] {
+        try await database.dbWriter.read { db in
+            try Folder.fetchAll(db, sql: """
+                SELECT folder.* FROM folder
+                JOIN folderCapture ON folderCapture.folderID = folder.id
+                WHERE folderCapture.captureID = ? AND folderCapture.state = 'present'
+                """, arguments: [captureID])
+        }
+    }
+
     func addManually(captureID: String, to folderID: String) async throws {
         try await database.dbWriter.write { db in
             let folder = try Self.requireFolder(db, folderID)

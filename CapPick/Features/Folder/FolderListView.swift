@@ -93,7 +93,8 @@ struct FolderListView: View {
                 viewModel: BrowseViewModel(
                     scope: scope, captureStore: captureStore, folderStore: folderStore,
                     analysisQueueService: analysisQueueService, searchService: searchService),
-                thumbnailLoader: thumbnailLoader
+                captureStore: captureStore, folderStore: folderStore,
+                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader
             )
         } label: {
             label()

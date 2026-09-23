@@ -24,6 +24,9 @@ protocol FolderStoring: Sendable {
 
     func fetchMemberships(of folderID: String) async throws -> [FolderCapture]
 
+    /// fetchMemberships(of:)의 반대 방향 — 이 캡처가 실제로 속한(present) 폴더들(DETAIL-02).
+    func fetchFolders(containing captureID: String) async throws -> [Folder]
+
     /// 직접 추가: present + manual, 기존 차단(blocked) 해제.
     func addManually(captureID: String, to folderID: String) async throws
     /// 직접 제거: blocked + manual — 소속은 없어지고 자동 재추가는 막힌다.

@@ -53,12 +53,41 @@ ON-03에서 동의한 뒤 pending 캡처를 **최근 것부터 순서대로 자�
 - BROWSE-01 안에서 폴더를 바로 전환하는 가로 스크롤 줄(화면설계서 §7.3)은 없다 — 폴더 전환은
   Home/FOLDER-01로 돌아가 다시 들어가는 것으로 대신한다.
 
-**아직 없는 것**: DETAIL-01(캡처 상세), RECLASS-01·AI 자동 분류(AI-03, folder_criteria/classification
+**DETAIL-01 캡처 상세 화면이 붙었다 (2026-09-23)** — `Features/CaptureDetail/`에
+`CaptureDetailView`·`CaptureDetailViewModel`. BrowseView의 `ForEach` 안에서
+`CaptureThumbnailView`를 `NavigationLink`로 감싸서 진입한다(`CaptureThumbnailView` 자체는
+안 건드림 — 기존 `.contextMenu` 롱프레스와 탭 내비게이션이 공존). 원본 화질은
+`ThumbnailLoading.fullImage(for:)`(그리드 썸네일과 달리 `.aspectFit`, `PHImageManagerMaximumSize`)로
+새로 불러온다. 즐겨찾기(`CaptureStoring.setFavorite`)·캡픽에서 제외(`exclude`, `excludedAt`만
+채우고 원본은 안 건드림)도 이번에 처음 store에 생겼다 — 필드는 있었는데 아무도 안 썼었다.
+소속 폴더 표시는 `FolderStoring.fetchFolders(containing:)`(`fetchMemberships(of:)`의 반대
+방향, 이번에 추가). 제외 후 BROWSE-01/HOME-01로 돌아왔을 때 목록·카드 개수가 갱신되게
+`BrowseView`/`HomeView`에 `.onAppear` 새로고침을 추가했다 — `NavigationStack`에서 자식을
+pop해서 돌아오는 건 `.task`를 재실행 안 시켜서 따로 필요했다.
+
+**DETAIL-03(글자 복사)은 서버 OCR이 아니라 애플 Live Text를 쓴다.** 처음엔 서버가 분석한
+`CaptureAnalysis.ocrText`를 화면에 띄우고 복사 버튼을 다는 식으로 만들었는데, 사용자가 그보다
+사진 앱에 이미 있는 Live Text(길게 눌러 이미지 위에서 바로 글자 선택·복사, iOS 15+ 시스템
+기능)가 낫겠다고 해서 바꿨다. `Features/CaptureDetail/LiveTextImageView.swift`
+(`UIViewRepresentable`, `VisionKit.ImageAnalyzer` + `ImageAnalysisInteraction`)가 이미지
+위에 사진 앱과 똑같은 텍스트 선택 UI를 올린다 — 기기에서 즉시 되고 분석 대기/실패 상태에서도
+쓸 수 있다. 이 때문에 `CaptureStoring.fetchAnalysis(for:)`(만들었다가 안 쓰게 돼서 다시 지움)와
+`CaptureDetailViewModel.ocrText`/`copyText()`가 없다 — 서버 OCR은 이제 검색(`SearchRanking`,
+`fetchSearchCandidates`가 직접 join)에만 쓰인다.
+**실기기 특유의 버그를 하나 겪었다**: `UIViewRepresentable`가 감싼 `UIImageView`는 기본적으로
+원본 이미지의 고유 크기(픽셀 크기)를 그대로 쓰려고 해서, 큰 스크린샷을 열면 화면 너비를
+무시하고 원본 크기로(3배 이상 확대되고 잘린 채) 렌더링됐다 — `.aspectRatio` 수정자만으로는
+안 고쳐졌다. `LiveTextImageView.sizeThatFits(_:uiView:context:)`(iOS 16+ `UIViewRepresentable`
+API)를 오버라이드해서 SwiftUI가 제안한 크기를 그대로 쓰게 강제해야 했다 — 시뮬레이터에서
+사용자가 실제로 발견해준 버그다.
+
+**아직 없는 것**: FOLDER-01의 재분류(RECLASS-01)·AI 자동 분류(AI-03, folder_criteria/classification
 Job kind가 서버에 없음), HOME-01 상단 큰 검색영역, BROWSE-01 폴더 전환 줄, masonry 그리드, 앱이
 완전히 백그라운드로 전환됐을 때도 도는 진짜 백그라운드 처리(BGProcessingTask) — 지금은 포그라운드
 에서만 순차 처리하고 멈추면 다음 포그라운드 진입 시 이어간다. 실패 이유를 "사진 접근/네트워크/
 사용량 한도"처럼 세분화해 보여주는 것(AI-06)도 아직이다 — 지금은 실패했다는 사실과 재시도 버튼만
-있다. ON-03의 AI 처리 안내 문구는 임시이며 공급자 선정 후 확정해야 한다.
+있다. ON-03의 AI 처리 안내 문구는 임시이며 공급자 선정 후 확정해야 한다. DETAIL-01의 확대·팬도
+기본 핀치 스케일 수준이다(정교한 줌 뷰어 아님).
 
 **검증 이력 (2026-09-23, 폴더 기능 추가 후)**: 테스트 104개(신규 `FolderListViewModelTests` 3개,
 `FolderEditViewModelTests` 5개, `BrowseViewModelTests`에 scope·폴더 추가/제거·폴더 범위 검색 5개,
@@ -67,6 +96,12 @@ Home 카드→폴더 생성("+ 새 폴더")→롱프레스로 캡처를 폴더�
 사용자가 직접 다 해봤고, 로컬 DB로 `folder.membershipRevision`과 `folderCapture.revision`이
 `GRDBFolderStore.writeMembership`이 정확히 예상한 값(추가·추가·제거 순서로 3)까지 맞는 것을
 교차 확인했다.
+
+**검증 이력 (2026-09-23, DETAIL-01 추가 후)**: 테스트 113개 전부 통과. 시뮬레이터에서 사용자가
+직접: 캡처 탭→상세 진입, Live Text로 이미지 속 글자 길게 눌러 선택(위 크기 버그 발견·수정 포함),
+즐겨찾기 별 토글, 공유 시트(이 앱 첫 `UIActivityViewController`), 캡픽에서 제외→확인 알럿→
+BROWSE-01로 복귀 후 목록에서 사라짐까지 전부 확인. 로컬 DB로 `capture.favorite`/`excludedAt`
+값도 교차 확인함.
 
 **검증 이력 (2026-09-22, 자동 큐 추가 후)**: 테스트 72개(신규 `AnalysisQueueServiceTests` 6개,
 `PersistenceTests`에 큐 저장소 메서드 4개, `CaptureStoring` 프로토콜에 4개 메서드 추가) 전부 통과.
@@ -102,7 +137,7 @@ CapPick/
 └── Services/       — 화면에 안 묶인 도메인 로직 (분류 규칙, 검색 결합 등)
 ```
 
-지금은 `Features/Onboarding`, `Features/Home`, `Services/`, `Networking/`이 채워져 있고 나머지 `Features/*`(Browse, CaptureDetail, Folder, Analysis, Settings)는 빈 폴더다. XcodeGen은 파일이 있는 폴더만 프로젝트에 반영하므로, 폴더 안에 첫 파일을 추가한 뒤 `xcodegen generate`를 다시 돌려야 Xcode 네비게이터에 보인다. 테스트는 `CapPickTests/`(별도 타깃, `project.yml`에 정의)에 둔다.
+지금은 `Features/Onboarding`, `Features/Home`, `Features/Browse`, `Features/Folder`, `Features/CaptureDetail`, `Services/`, `Networking/`이 채워져 있고 나머지 `Features/*`(Analysis, Settings)는 빈 폴더다. XcodeGen은 파일이 있는 폴더만 프로젝트에 반영하므로, 폴더 안에 첫 파일을 추가한 뒤 `xcodegen generate`를 다시 돌려야 Xcode 네비게이터에 보인다. 테스트는 `CapPickTests/`(별도 타깃, `project.yml`에 정의)에 둔다.
 
 ## 코딩 컨벤션
 

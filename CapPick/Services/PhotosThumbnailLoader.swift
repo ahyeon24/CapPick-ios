@@ -26,4 +26,24 @@ struct PhotosThumbnailLoader: ThumbnailLoading {
             }
         }
     }
+
+    func fullImage(for photoAssetID: String) async -> UIImage? {
+        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [photoAssetID], options: nil)
+        guard let asset = fetchResult.firstObject else { return nil }
+
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat // 위 thumbnail(for:targetSize:)와 같은 이유로 단일 콜백 보장.
+        options.isNetworkAccessAllowed = true
+
+        return await withCheckedContinuation { continuation in
+            imageManager.requestImage(
+                for: asset,
+                targetSize: PHImageManagerMaximumSize,
+                contentMode: .aspectFit, // 정사각형으로 안 자르고 원본 비율을 유지한다 — 그리드 썸네일과의 차이.
+                options: options
+            ) { image, _ in
+                continuation.resume(returning: image)
+            }
+        }
+    }
 }

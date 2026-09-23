@@ -5,12 +5,21 @@ import SwiftUI
 // (항상 관련도순 또는 최근순).
 struct BrowseView: View {
     @State private var viewModel: BrowseViewModel
+    private let captureStore: any CaptureStoring
+    private let folderStore: any FolderStoring
+    private let analysisQueueService: AnalysisQueueService
     private let thumbnailLoader: any ThumbnailLoading
 
     private let columns = [GridItem(.flexible(), spacing: 2), GridItem(.flexible(), spacing: 2)]
 
-    init(viewModel: BrowseViewModel, thumbnailLoader: any ThumbnailLoading) {
+    init(
+        viewModel: BrowseViewModel, captureStore: any CaptureStoring, folderStore: any FolderStoring,
+        analysisQueueService: AnalysisQueueService, thumbnailLoader: any ThumbnailLoading
+    ) {
         _viewModel = State(initialValue: viewModel)
+        self.captureStore = captureStore
+        self.folderStore = folderStore
+        self.analysisQueueService = analysisQueueService
         self.thumbnailLoader = thumbnailLoader
     }
 
@@ -26,17 +35,25 @@ struct BrowseView: View {
                 // LazyVGrid라 스크롤에 따라 썸네일을 늦게 불러온다 — 한 번에 원본을 전부 안 불러온다(§7.5).
                 LazyVGrid(columns: columns, spacing: 2) {
                     ForEach(viewModel.captures) { capture in
-                        CaptureThumbnailView(
-                            capture: capture,
-                            thumbnailLoader: thumbnailLoader,
-                            isAnalyzing: viewModel.analyzingCaptureIDs.contains(capture.id),
-                            onRetryTapped: { Task { await viewModel.retry(capture) } },
-                            folders: viewModel.folders,
-                            onAddToFolder: { folder in Task { await viewModel.addToFolder(capture, folderID: folder.id) } },
-                            onRemoveFromCurrentFolder: viewModel.scope.folderID == nil
-                                ? nil
-                                : { Task { await viewModel.removeFromCurrentFolder(capture) } }
-                        )
+                        NavigationLink {
+                            CaptureDetailView(viewModel: CaptureDetailViewModel(
+                                capture: capture, captureStore: captureStore, folderStore: folderStore,
+                                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader
+                            ))
+                        } label: {
+                            CaptureThumbnailView(
+                                capture: capture,
+                                thumbnailLoader: thumbnailLoader,
+                                isAnalyzing: viewModel.analyzingCaptureIDs.contains(capture.id),
+                                onRetryTapped: { Task { await viewModel.retry(capture) } },
+                                folders: viewModel.folders,
+                                onAddToFolder: { folder in Task { await viewModel.addToFolder(capture, folderID: folder.id) } },
+                                onRemoveFromCurrentFolder: viewModel.scope.folderID == nil
+                                    ? nil
+                                    : { Task { await viewModel.removeFromCurrentFolder(capture) } }
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -54,6 +71,11 @@ struct BrowseView: View {
         .task {
             await viewModel.load()
             await viewModel.observeQueueUntilIdle()
+        }
+        .onAppear {
+            // 상세 화면에서 캡픽 제외 등으로 돌아왔을 때 목록을 새로고침한다 — NavigationStack에서
+            // 자식을 pop해 돌아오는 건 이 뷰를 다시 만들지 않아서 .task가 재실행되지 않는다.
+            Task { await viewModel.load() }
         }
     }
 
