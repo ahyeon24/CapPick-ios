@@ -11,6 +11,8 @@ struct AppEnvironment: Sendable {
     let thumbnailLoader: any ThumbnailLoading
     let analysisQueueService: AnalysisQueueService
     let searchService: SearchService
+    let reclassificationStore: any ReclassificationStoring
+    let reclassificationService: ReclassificationService
 
     // 로컬 개발 전용 기본값 — 시뮬레이터에서 Mac의 localhost를 그대로 가리킨다. 배포 주소는
     // 아직 없다(API 명세 §1: "배포 주소 없음"). 실기기로 테스트하려면 Mac의 LAN IP로 바꿔야 한다.
@@ -20,6 +22,7 @@ struct AppEnvironment: Sendable {
         let database = try AppDatabase.makeOnDisk()
         let library = PhotosScreenshotLibrary()
         let captureStore = GRDBCaptureStore(database: database)
+        let folderStore = GRDBFolderStore(database: database)
         let appStateStore = GRDBAppStateStore(database: database)
 
         let installationAPIClient = URLSessionInstallationAPIClient(baseURL: developmentServerURL)
@@ -38,9 +41,16 @@ struct AppEnvironment: Sendable {
             captureStore: captureStore,
             imageProvider: PhotosImageDataProvider()
         )
+        let classificationService = ClassificationService(
+            classificationAPIClient: URLSessionClassificationAPIClient(baseURL: developmentServerURL),
+            installationRegistrar: installationRegistrar,
+            captureStore: captureStore,
+            folderStore: folderStore
+        )
         let analysisQueueService = AnalysisQueueService(
             captureStore: captureStore,
             contentAnalysisService: contentAnalysisService,
+            classificationService: classificationService,
             appStateStore: appStateStore
         )
         let searchService = SearchService(
@@ -48,17 +58,26 @@ struct AppEnvironment: Sendable {
             installationRegistrar: installationRegistrar,
             captureStore: captureStore
         )
+        let reclassificationStore = GRDBReclassificationStore(database: database)
+        let reclassificationService = ReclassificationService(
+            captureStore: captureStore,
+            folderStore: folderStore,
+            reclassificationStore: reclassificationStore,
+            classificationService: classificationService
+        )
 
         return AppEnvironment(
             library: library,
             captureStore: captureStore,
-            folderStore: GRDBFolderStore(database: database),
+            folderStore: folderStore,
             appStateStore: appStateStore,
             syncService: ScreenshotSyncService(library: library, captureStore: captureStore),
             installationRegistrar: installationRegistrar,
             thumbnailLoader: PhotosThumbnailLoader(),
             analysisQueueService: analysisQueueService,
-            searchService: searchService
+            searchService: searchService,
+            reclassificationStore: reclassificationStore,
+            reclassificationService: reclassificationService
         )
     }
 }

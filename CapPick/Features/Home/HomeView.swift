@@ -11,15 +11,29 @@ struct HomeView: View {
     private let thumbnailLoader: any ThumbnailLoading
     private let analysisQueueService: AnalysisQueueService
     private let searchService: SearchService
+    private let reclassificationStore: any ReclassificationStoring
+    private let reclassificationService: ReclassificationService
 
     @State private var isCreatingFolder = false
+    @State private var reclassificationTarget: ReclassificationTarget?
+    // 화면설계서 §7.1·§7.2 HOME-01 상단 검색. 홈 검색창은 마지막 입력을 유지하는 초안이라
+    // @State로 충분하다 — NavigationStack에서 자식을 pop해 돌아와도 이 뷰 자체는 다시 안 만들어져
+    // 값이 그대로 남는다. 실행은 pendingSearch를 통해서만 한다(입력마다 검색하지 않음).
+    @State private var searchQuery = ""
+    @State private var pendingSearch: PendingSearch?
+
+    private struct PendingSearch: Identifiable, Hashable {
+        let id = UUID()
+        let query: String
+    }
 
     private let cardColumns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     init(
         viewModel: HomeViewModel, captureStore: any CaptureStoring, folderStore: any FolderStoring,
         thumbnailLoader: any ThumbnailLoading, analysisQueueService: AnalysisQueueService,
-        searchService: SearchService
+        searchService: SearchService, reclassificationStore: any ReclassificationStoring,
+        reclassificationService: ReclassificationService
     ) {
         _viewModel = State(initialValue: viewModel)
         self.captureStore = captureStore
@@ -27,6 +41,8 @@ struct HomeView: View {
         self.thumbnailLoader = thumbnailLoader
         self.analysisQueueService = analysisQueueService
         self.searchService = searchService
+        self.reclassificationStore = reclassificationStore
+        self.reclassificationService = reclassificationService
     }
 
     var body: some View {
@@ -52,9 +68,41 @@ struct HomeView: View {
             }
             .sheet(isPresented: $isCreatingFolder) {
                 FolderEditView(viewModel: FolderEditViewModel(
-                    mode: .create, folderStore: folderStore, onSaved: { Task { await viewModel.refresh() } }))
+                    mode: .create, folderStore: folderStore,
+                    onSaved: { folder, applyToExisting in
+                        Task { await viewModel.refresh() }
+                        if applyToExisting {
+                            reclassificationTarget = ReclassificationTarget(folder: folder, mode: .initialApply)
+                        }
+                    }))
+            }
+            .sheet(item: $reclassificationTarget) { target in
+                NavigationStack {
+                    ReclassificationView(viewModel: ReclassificationViewModel(
+                        folder: target.folder, mode: target.mode, reclassificationService: reclassificationService,
+                        reclassificationStore: reclassificationStore, captureStore: captureStore,
+                        thumbnailLoader: thumbnailLoader))
+                }
+                .onDisappear { Task { await viewModel.refresh() } }
+            }
+            .navigationDestination(item: $pendingSearch) { pending in
+                BrowseView(
+                    viewModel: BrowseViewModel(
+                        scope: .all, captureStore: captureStore, folderStore: folderStore,
+                        analysisQueueService: analysisQueueService, searchService: searchService,
+                        initialQuery: pending.query),
+                    captureStore: captureStore, folderStore: folderStore,
+                    analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader
+                )
             }
         }
+    }
+
+    // 화면설계서 §7.2: "빈 검색어 실행 | 검색 요청 없이 입력 유지".
+    private func executeSearch() {
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        pendingSearch = PendingSearch(query: trimmed)
     }
 
     @ViewBuilder
@@ -70,9 +118,7 @@ struct HomeView: View {
                 Text("허용한 사진 중 스크린샷만 보여요. 기존 캡처 전체가 아닐 수 있어요.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
-            Text("접근 가능한 스크린샷 \(progress.total.formatted())장").font(.title3)
-            Text("\(progress.searchReady.formatted()) / \(progress.total.formatted())장 분석 완료")
-                .foregroundStyle(.secondary)
+            searchArea(progress: progress)
             if progress.total > 0 {
                 folderCards(total: progress.total)
             }
@@ -80,6 +126,21 @@ struct HomeView: View {
             Text(message).foregroundStyle(.red)
         } else {
             ProgressView()
+        }
+    }
+
+    // 화면설계서 §7.1 HOME-01 상단 큰 영역 — 안내 문구·작은 분석 상태·검색창을 한 덩어리로 둔다.
+    // 하단에는 검색창을 두지 않는다(§7.2 "검색창을 하단으로 옮기지 않음").
+    @ViewBuilder
+    private func searchArea(progress: AnalysisProgress) -> some View {
+        Text("어떤 캡처를 찾고 있나요?").font(.title3)
+        Text("\(progress.searchReady.formatted()) / \(progress.total.formatted())장 분석 완료")
+            .foregroundStyle(.secondary)
+        HStack {
+            TextField("기억나는 말로 검색", text: $searchQuery)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { executeSearch() }
+            Button("검색") { executeSearch() }
         }
     }
 
@@ -98,7 +159,8 @@ struct HomeView: View {
             NavigationLink("관리") {
                 FolderListView(
                     captureStore: captureStore, folderStore: folderStore, thumbnailLoader: thumbnailLoader,
-                    analysisQueueService: analysisQueueService, searchService: searchService
+                    analysisQueueService: analysisQueueService, searchService: searchService,
+                    reclassificationStore: reclassificationStore, reclassificationService: reclassificationService
                 )
             }
             Spacer()

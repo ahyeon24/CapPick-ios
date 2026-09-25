@@ -6,11 +6,13 @@ final class PersistenceTests: XCTestCase {
     private var database: AppDatabase!
     private var captures: GRDBCaptureStore!
     private var folders: GRDBFolderStore!
+    private var reclassifications: GRDBReclassificationStore!
 
     override func setUpWithError() throws {
         database = try AppDatabase.makeInMemory()
         captures = GRDBCaptureStore(database: database)
         folders = GRDBFolderStore(database: database)
+        reclassifications = GRDBReclassificationStore(database: database)
     }
 
     private func makeCapture(
@@ -424,6 +426,97 @@ final class PersistenceTests: XCTestCase {
         )
         XCTAssertEqual(gone, .ignoredCaptureUnavailable)
         XCTAssertEqual(excluded, .ignoredCaptureUnavailable)
+    }
+
+    func testFetchFolderReturnsFolderOrNil() async throws {
+        try await folders.save(makeFolder("f1"))
+
+        let found = try await folders.fetchFolder(id: "f1")
+        XCTAssertEqual(found?.id, "f1")
+        let missing = try await folders.fetchFolder(id: "missing")
+        XCTAssertNil(missing)
+    }
+
+    // RECLASS-01의 "확인된 재분류의 불일치" 규칙(ERD §3) — auto+present만 제거하고 manual은 절대 안 건드린다.
+    func testAutoMismatchRemovalRemovesOnlyAutoPresentMembership() async throws {
+        try await captures.save(makeCapture("c1"))
+        try await folders.save(makeFolder("f1"))
+        _ = try await folders.applyAutoMatch(captureID: "c1", to: "f1", evidence: "e", criteriaVersion: 1)
+
+        let result = try await folders.applyAutoMismatchRemoval(captureID: "c1", from: "f1", criteriaVersion: 1)
+
+        XCTAssertEqual(result, .applied)
+        let memberships = try await folders.fetchMemberships(of: "f1")
+        XCTAssertTrue(memberships.isEmpty, "행 자체가 지워져야 나중에 다시 자유롭게 auto-match될 수 있다")
+        let updatedFolder = try await folders.fetchAll().first
+        XCTAssertEqual(updatedFolder?.membershipRevision, 2)
+    }
+
+    func testAutoMismatchRemovalNeverTouchesManualMembership() async throws {
+        try await captures.save(makeCapture("c1"))
+        try await folders.save(makeFolder("f1"))
+        try await folders.addManually(captureID: "c1", to: "f1")
+
+        let result = try await folders.applyAutoMismatchRemoval(captureID: "c1", from: "f1", criteriaVersion: 1)
+
+        XCTAssertEqual(result, .ignoredUserDecision)
+        let memberships = try await folders.fetchMemberships(of: "f1")
+        XCTAssertEqual(memberships.first?.state, .present, "manual 소속은 재분류로 절대 제거되지 않는다")
+    }
+
+    func testAutoMismatchRemovalIgnoredWhenCriteriaVersionIsStale() async throws {
+        try await captures.save(makeCapture("c1"))
+        try await folders.save(makeFolder("f1"))
+        _ = try await folders.applyAutoMatch(captureID: "c1", to: "f1", evidence: nil, criteriaVersion: 1)
+        try await folders.save(Folder(
+            id: "f1", displayName: "f1", criteriaText: "새 기준", criteriaVersion: 2,
+            criteriaState: .pending, membershipRevision: 1))
+
+        let result = try await folders.applyAutoMismatchRemoval(captureID: "c1", from: "f1", criteriaVersion: 1)
+
+        XCTAssertEqual(result, .ignoredStaleCriteria)
+        let memberships = try await folders.fetchMemberships(of: "f1")
+        XCTAssertEqual(memberships.first?.state, .present)
+    }
+
+    func testFetchAnalyzedCapturesReturnsOnlySearchReadyVisibleCaptures() async throws {
+        try await captures.save(makeCapture("ready", searchState: .ready))
+        try await captures.save(makeCapture("pending", searchState: .pending))
+        try await captures.save(makeCapture("failed", searchState: .failed))
+        try await captures.save(makeCapture("excludedReady", excluded: true, searchState: .ready))
+
+        let analyzed = try await captures.fetchAnalyzedCaptures()
+
+        XCTAssertEqual(analyzed.map(\.id), ["ready"])
+    }
+
+    func testReclassificationRunAndItemsRoundTrip() async throws {
+        try await folders.save(makeFolder("f1"))
+        try await captures.save(makeCapture("c1"))
+
+        let noneYet = try await reclassifications.activeRun(folderID: "f1")
+        XCTAssertNil(noneYet)
+
+        let run = try await reclassifications.createRun(
+            folderID: "f1", criteriaVersion: 1, membershipRevision: 0, mode: .reclassify)
+
+        let active = try await reclassifications.activeRun(folderID: "f1")
+        XCTAssertEqual(active?.id, run.id, "만들자마자 previewing 상태라 activeRun에 잡혀야 한다")
+
+        try await reclassifications.saveItems([
+            ReclassificationItem(runID: run.id, captureID: "c1", action: .add, evidence: "e", expectedMembershipRevision: 0, state: ReclassificationItemState.pending),
+        ])
+        let items = try await reclassifications.fetchItems(runID: run.id)
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].action, .add)
+
+        try await reclassifications.setItemState(runID: run.id, captureID: "c1", state: ReclassificationItemState.applied)
+        try await reclassifications.setRunState(run.id, state: ReclassificationRunState.applied)
+
+        let updatedItems = try await reclassifications.fetchItems(runID: run.id)
+        XCTAssertEqual(updatedItems.first?.state, ReclassificationItemState.applied)
+        let stillActive = try await reclassifications.activeRun(folderID: "f1")
+        XCTAssertNil(stillActive, "확정된 실행은 더 이상 activeRun이 아니다 — 새 재분류를 막지 않는다")
     }
 
     func testMembershipOnMissingFolderOrCaptureThrows() async throws {

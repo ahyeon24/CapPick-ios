@@ -37,9 +37,13 @@ actor ContentAnalysisService {
         }
 
         let credential = try await installationRegistrar.ensureRegistered()
-        // capture당·content_revision당 같은 키를 써서, 같은 캡처를 다시 눌러도 서버가 중복
-        // 작업을 새로 만들지 않는다(API 명세 §2 Idempotency-Key).
-        let idempotencyKey = "content-analysis-\(capture.id)-r\(capture.contentRevision)"
+        // capture·content_revision·analysisAttempt로 키를 만든다. attempt를 포함하지 않으면
+        // 실패 후 재시도가 서버 입장에서 "완전히 같은 요청"이 돼버려서, 예전에 멈춰버린 작업이든
+        // 이미 실패로 끝난 작업이든 그걸 그대로 돌려주기만 하고 절대 다시 분석하지 않는다(API
+        // 명세 §2 Idempotency-Key는 "같은 논리 작업"에만 재사용하라는 뜻인데, 자동 큐가 pending을
+        // 처음 집을 때는 attempt를 안 올려서 앱이 죽었다 살아난 경우엔 여전히 같은 키를 재사용한다
+        // — AnalysisQueueService.retry 참고).
+        let idempotencyKey = "content-analysis-\(capture.id)-r\(capture.contentRevision)-a\(capture.analysisAttempt)"
 
         let submitted = try await jobAPIClient.submitContentAnalysis(
             clientReference: capture.id,

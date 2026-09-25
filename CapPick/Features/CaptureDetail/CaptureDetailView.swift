@@ -18,7 +18,11 @@ struct CaptureDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 statusSection
                 foldersSection
-                if viewModel.capture.searchState == .failed {
+                // pending(자동 큐가 곧 처리)·processing(이미 진행 중) 상태만 뺀다 — 분석이
+                // 실패했을 때뿐 아니라 이미 성공(ready)한 캡처도 사용자가 원하면 다시 돌릴 수
+                // 있다(2026-09-25 사용자 결정 — 예: 폴더를 새로 만든 뒤 기존 캡처를 다시
+                // 분류해보고 싶을 때).
+                if viewModel.capture.searchState == .failed || viewModel.capture.searchState == .ready {
                     retrySection
                 }
                 if let message = viewModel.errorMessage {

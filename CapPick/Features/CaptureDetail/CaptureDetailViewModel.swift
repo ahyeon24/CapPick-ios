@@ -58,8 +58,10 @@ final class CaptureDetailViewModel {
         }
     }
 
-    /// pending 캡처는 자동 큐가 처리하므로 이 화면에서는 failed 상태의 수동 재시도만 의미가
-    /// 있다(BrowseViewModel.retry와 같은 이유·같은 패턴).
+    /// pending 캡처는 자동 큐가 처리하므로 이 화면의 버튼은 그 상태에서는 안 보인다(View 참고).
+    /// failed뿐 아니라 이미 성공(ready)한 캡처도 사용자가 원하면 다시 돌릴 수 있다(2026-09-25
+    /// 사용자 결정) — 분석·분류를 처음부터 다시 하므로 폴더를 새로 만든 뒤 기존 캡처에 적용해보고
+    /// 싶을 때도 이걸로 해결된다(RECLASS-01의 정식 "기존 캡처 일괄 적용"이 생기기 전 임시 대안).
     func retry() async {
         guard !isRetrying else { return }
         isRetrying = true

@@ -41,7 +41,7 @@ final class ContentAnalysisServiceTests: XCTestCase {
         XCTAssertEqual(jobAPIClient.submitCalls.count, 1)
         XCTAssertEqual(jobAPIClient.submitCalls[0].clientReference, "capture-1")
         XCTAssertEqual(jobAPIClient.submitCalls[0].contentRevision, 3)
-        XCTAssertEqual(jobAPIClient.submitCalls[0].idempotencyKey, "content-analysis-capture-1-r3")
+        XCTAssertEqual(jobAPIClient.submitCalls[0].idempotencyKey, "content-analysis-capture-1-r3-a0")
 
         let saved = try await captureStore.fetchAll().first { $0.id == "capture-1" }
         XCTAssertEqual(saved?.searchState, .ready)

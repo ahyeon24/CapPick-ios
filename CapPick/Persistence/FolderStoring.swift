@@ -19,6 +19,8 @@ protocol FolderStoring: Sendable {
     /// 저장·수정. 이름만 바꿔도 criteriaVersion은 호출하는 쪽이 올리지 않는다. membershipRevision은 덮어쓰지 않는다.
     func save(_ folder: Folder) async throws
     func fetchAll() async throws -> [Folder]
+    /// id로 폴더 하나. RECLASS-01이 재분류 실행을 시작할 때 최신 criteriaText·criteriaVersion을 읽는다.
+    func fetchFolder(id: String) async throws -> Folder?
     /// 폴더와 그 소속·차단·재분류 기록만 지운다. 캡처 원본 기록은 유지한다.
     func delete(id: String) async throws
 
@@ -36,6 +38,15 @@ protocol FolderStoring: Sendable {
         captureID: String,
         to folderID: String,
         evidence: String?,
+        criteriaVersion: Int
+    ) async throws -> AutoMatchResult
+
+    /// RECLASS-01 확인된 재분류의 불일치 반영(ERD §3 표) — auto+present 관계만 제거한다. manual
+    /// 관계(직접 추가·직접 제거 모두)는 절대 건드리지 않는다. 소속이 아예 없거나(row 없음) 이미
+    /// manual/blocked면 ignoredUserDecision — applyAutoMatch와 대칭이지만 반대 방향이다.
+    func applyAutoMismatchRemoval(
+        captureID: String,
+        from folderID: String,
         criteriaVersion: Int
     ) async throws -> AutoMatchResult
 }

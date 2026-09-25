@@ -47,13 +47,20 @@ final class BrowseViewModel {
 
     init(
         scope: BrowseScope, captureStore: any CaptureStoring, folderStore: any FolderStoring,
-        analysisQueueService: AnalysisQueueService, searchService: SearchService
+        analysisQueueService: AnalysisQueueService, searchService: SearchService,
+        initialQuery: String? = nil
     ) {
         self.scope = scope
         self.captureStore = captureStore
         self.folderStore = folderStore
         self.analysisQueueService = analysisQueueService
         self.searchService = searchService
+        // HOME-01 상단 검색에서 넘어올 때만 쓴다(§2 흐름: "HOME-01 상단에서 검색 실행 →
+        // BROWSE-01 전체 검색 결과"). View의 .task가 이 값을 보고 load() 대신 search()를 부른다.
+        let trimmedInitialQuery = initialQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmedInitialQuery.isEmpty {
+            self.searchText = trimmedInitialQuery
+        }
     }
 
     func load() async {

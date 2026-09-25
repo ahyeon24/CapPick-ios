@@ -126,6 +126,14 @@ struct AppDatabase: Sendable {
             }
         }
 
+        // 재시도마다 다른 Idempotency-Key를 만들기 위한 카운터(ContentAnalysisService 참고).
+        // 기존 행은 전부 0으로 채워진다(SQLite ALTER TABLE ADD COLUMN의 DEFAULT가 즉시 backfill).
+        migrator.registerMigration("v2") { db in
+            try db.alter(table: "capture") { t in
+                t.add(column: "analysisAttempt", .integer).notNull().defaults(to: 0)
+            }
+        }
+
         return migrator
     }
 }

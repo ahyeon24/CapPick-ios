@@ -69,12 +69,21 @@ struct BrowseView: View {
             searchBar(viewModel: $viewModel)
         }
         .task {
-            await viewModel.load()
+            // HOME-01 상단 검색에서 이미 검색어를 갖고 들어왔으면(§2 흐름) load() 대신 바로 검색을
+            // 실행한다 — 빈 목록이 잠깐 보였다가 검색 결과로 바뀌는 깜빡임을 피한다.
+            if viewModel.searchText.isEmpty {
+                await viewModel.load()
+            } else {
+                await viewModel.search()
+            }
             await viewModel.observeQueueUntilIdle()
         }
         .onAppear {
             // 상세 화면에서 캡픽 제외 등으로 돌아왔을 때 목록을 새로고침한다 — NavigationStack에서
             // 자식을 pop해 돌아오는 건 이 뷰를 다시 만들지 않아서 .task가 재실행되지 않는다.
+            // 검색 결과를 보여주는 중이면 load()로 덮어쓰지 않는다 — "뒤로 가면 검색어·폴더·
+            // 스크롤 위치 복원"(화면설계서 §2)을 지킨다.
+            guard !viewModel.isSearchActive else { return }
             Task { await viewModel.load() }
         }
     }

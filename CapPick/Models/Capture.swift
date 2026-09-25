@@ -13,6 +13,30 @@ struct Capture: Identifiable, Equatable, Codable {
     var contentRevision: Int
     var searchState: SearchState
     var classificationState: ClassificationState
+    // 사용자가 명시적으로 "다시 분석하기"를 누른 횟수(ContentAnalysisService의 Idempotency-Key에
+    // 들어간다). pending 캡처를 자동 큐가 처음 집을 때는 증가시키지 않는다 — AnalysisQueueService.retry
+    // 참고.
+    var analysisAttempt: Int
+
+    init(
+        id: String, photoAssetID: String, capturedAt: Date, width: Int, height: Int,
+        availability: CaptureAvailability, excludedAt: Date?, favorite: Bool,
+        contentRevision: Int, searchState: SearchState, classificationState: ClassificationState,
+        analysisAttempt: Int = 0
+    ) {
+        self.id = id
+        self.photoAssetID = photoAssetID
+        self.capturedAt = capturedAt
+        self.width = width
+        self.height = height
+        self.availability = availability
+        self.excludedAt = excludedAt
+        self.favorite = favorite
+        self.contentRevision = contentRevision
+        self.searchState = searchState
+        self.classificationState = classificationState
+        self.analysisAttempt = analysisAttempt
+    }
 }
 
 enum CaptureAvailability: String, Codable {

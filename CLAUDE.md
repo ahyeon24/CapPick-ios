@@ -15,7 +15,8 @@ XcodeGen 스캐폴딩 + `Models/`에 ERD v0.2 §2 로컬 엔터티를 그대로 
 
 **BROWSE-01의 "빈 검색어" 흐름과 실제 검색(SEARCH-01·02·03·06·08·09)이 있다** — 검색어가 없으면 접근 가능한 캡처 전체를 최근순 2열 그리드로 보여준다(`Features/Browse`). 미분석(pending) 캡처도 함께 보인다(SEARCH-06). 썸네일은 `Services/ThumbnailLoading`(`PhotosThumbnailLoader`)이 `PHImageManager`로 가져온다. 지금은 정사각형 균일 그리드다 — 화면설계서가 요구하는 "이미지 비율에 따라 높이가 다른" masonry 배치는 다음 단계다(각 셀 코드에 명시해둠). `HomeView`의 폴더 카드(아래 "폴더 기능" 절)나 FOLDER-01 행을 눌러 진입한다.
 
-**검색은 BROWSE-01 하단 검색창에 있다 — HOME-01 상단 큰 검색영역은 이번엔 안 넣었다(사용자 결정).** `Networking/SearchAPIClient`(서버 `/v1/search/prepare` 호출, Job 아님 — 동기 요청/응답)가 자연어 질의를 해석·임베딩만 받아오고, `Services/SearchRanking`(순수 함수)이 로컬 DB에서 키워드(lexicalTerms가 OCR/searchText에 포함)+코사인 유사도를 단순 합산해 정렬한다 — 결합 방식은 기능명세서 자체가 "샘플 평가 후 결정"이라 명시한 미정 항목이라 잠정치다. `Services/SearchService`(actor)가 이 둘을 조합한다. `BrowseViewModel.search()`가 요청마다 UUID를 발급해 스테일 가드(SEARCH-09: 늦게 끝난 이전 요청이 최신 결과를 덮어쓰지 않게)를 구현한다. **폴더 범위 검색(SEARCH-04)은 폴더 기능과 함께 붙었다** — `BrowseScope`가 `.folder`면 `search()`가 `folderID`를 같이 넘긴다.
+**검색은 BROWSE-01 하단 검색창과 HOME-01 상단 검색창 둘 다에 있다(HOME-01 쪽은 2026-09-25 추가
+— 처음엔 사용자 결정으로 안 넣었다가 나중에 원해서 붙였다).** `Networking/SearchAPIClient`(서버 `/v1/search/prepare` 호출, Job 아님 — 동기 요청/응답)가 자연어 질의를 해석·임베딩만 받아오고, `Services/SearchRanking`(순수 함수)이 로컬 DB에서 키워드(lexicalTerms가 OCR/searchText에 포함)+코사인 유사도를 단순 합산해 정렬한다 — 결합 방식은 기능명세서 자체가 "샘플 평가 후 결정"이라 명시한 미정 항목이라 잠정치다. `Services/SearchService`(actor)가 이 둘을 조합한다. `BrowseViewModel.search()`가 요청마다 UUID를 발급해 스테일 가드(SEARCH-09: 늦게 끝난 이전 요청이 최신 결과를 덮어쓰지 않게)를 구현한다. **폴더 범위 검색(SEARCH-04)은 폴더 기능과 함께 붙었다** — `BrowseScope`가 `.folder`면 `search()`가 `folderID`를 같이 넘긴다.
 - `GRDBCaptureStore.fetchSearchCandidates(capturedFrom:capturedBefore:folderID:)`가 `capture`+`captureAnalysis`+`searchDocument`(+`folderID`가 있으면 `folderCapture`까지) join으로 후보를 가져온다 — 분석 안 된 캡처는 애초에 후보가 아니다(INNER JOIN).
 - `GRDBCaptureStore.currentEmbeddingModelVersion()`은 지금 서버 설정이 고정이라 분석 완료된 캡처는 전부 같은 임베딩 모델 버전일 거라고 가정하고 아무거나 하나를 돌려준다 — 하나도 없으면 nil이고, 이때 `SearchService`는 서버에 요청조차 안 보내고 바로 빈 결과를 돌려준다(검색 대상 자체가 없으므로).
 
@@ -81,8 +82,8 @@ pop해서 돌아오는 건 `.task`를 재실행 안 시켜서 따로 필요했�
 API)를 오버라이드해서 SwiftUI가 제안한 크기를 그대로 쓰게 강제해야 했다 — 시뮬레이터에서
 사용자가 실제로 발견해준 버그다.
 
-**아직 없는 것**: FOLDER-01의 재분류(RECLASS-01)·AI 자동 분류(AI-03, folder_criteria/classification
-Job kind가 서버에 없음), HOME-01 상단 큰 검색영역, BROWSE-01 폴더 전환 줄, masonry 그리드, 앱이
+**아직 없는 것**: `folder_criteria` Job(모호한 폴더 기준을 AI가 다듬어주는 것 — 지금은 사용자가
+적은 기준 텍스트를 그대로 씀), BROWSE-01 폴더 전환 줄, masonry 그리드, 앱이
 완전히 백그라운드로 전환됐을 때도 도는 진짜 백그라운드 처리(BGProcessingTask) — 지금은 포그라운드
 에서만 순차 처리하고 멈추면 다음 포그라운드 진입 시 이어간다. 실패 이유를 "사진 접근/네트워크/
 사용량 한도"처럼 세분화해 보여주는 것(AI-06)도 아직이다 — 지금은 실패했다는 사실과 재시도 버튼만
@@ -102,6 +103,149 @@ Home 카드→폴더 생성("+ 새 폴더")→롱프레스로 캡처를 폴더�
 즐겨찾기 별 토글, 공유 시트(이 앱 첫 `UIActivityViewController`), 캡픽에서 제외→확인 알럿→
 BROWSE-01로 복귀 후 목록에서 사라짐까지 전부 확인. 로컬 DB로 `capture.favorite`/`excludedAt`
 값도 교차 확인함.
+
+**⚠️ 실제로 겪은 버그 — "다시 분석하기"가 영원히 같은 결과만 돌려줌 (2026-09-25 발견·수정).**
+`ContentAnalysisService`의 Idempotency-Key가 `capture.id`+`content_revision`만으로 만들어져서,
+실패 후 재시도가 서버 입장에서 "완전히 같은 요청"이 돼버렸다 — 서버(`JobService.submitContentAnalysis`)는
+같은 키로 온 요청은 기존 job을 그대로 돌려주고 재실행하지 않는 게 원래 의도한 동작(멱등성)인데,
+"재시도"는 의미상 "이전과 다른, 새로 해보고 싶은 요청"이라 이 규칙과 충돌했다. 실제로 9월 22일
+트랜잭션 타이밍 버그(서버 CLAUDE.md 참고) 당시 만들어져 영원히 QUEUED로 멈춰있던 job 3개가
+있었는데, 그 캡처들을 재시도할 때마다 서버가 그 멈춘 job을 그대로 돌려주기만 해서 클라이언트가
+30번 폴링 후 `timedOut`으로 실패했다 — **서버 job 테이블엔 새 행이 하나도 안 생기는데 앱은
+계속 실패하는** 상태라 원인 파악이 오래 걸렸다(diag 진단용 job을 curl로 직접 넣어 서버 자체는
+멀쩡함을 먼저 확인하고 나서야 클라이언트의 키 재사용 문제라는 걸 알아냈다). `Capture.analysisAttempt`
+(새 필드, `v2` 마이그레이션)를 추가해 `AnalysisQueueService.retry()`가 호출될 때만 증가시키고,
+Idempotency-Key에 포함시켜 고쳤다 — `resumeIfNeeded()`가 pending 캡처를 처음(또는 앱이 죽어
+processing에서 되돌아온 뒤 다시) 집을 때는 attempt를 올리지 않는다(그 경우엔 서버에서 여전히
+진행 중이었을 수 있는 작업과 같은 키를 유지해야 중복 제출을 피한다 — 원래 멱등성 의도는 그대로
+살림). `AnalysisQueueServiceTests`에 재시도마다 키가 달라지는 것, 자동 큐 재개는 키가 안 바뀌는
+것 둘 다 회귀 테스트로 고정해뒀다.
+
+**AI-03 자동 분류가 붙었다 (2026-09-25).** 서버에 새로 생긴 `classification` Job kind(서버
+CLAUDE.md "자동 분류" 절)를 실제로 호출하는 클라이언트 쪽 — `Networking/ClassificationAPIClient`
+(+`URLSessionClassificationAPIClient`, `POST /v1/jobs` JSON 바디)와 `Services/ClassificationService`
+(actor, 제출→폴링→`FolderStoring.applyAutoMatch` 반영, `ContentAnalysisService`와 같은 구조)가
+새로 생겼다. `AnalysisQueueService`가 이 둘을 잇는다:
+- 분석이 성공하면(`analyzeOneCapture`) **같은 실행에서 바로 이어서 분류까지** 돈다 — 사용자가
+  분류를 따로 트리거할 필요가 없다는 제품 방향(§1.4)에 맞춘다. 분류 실패는 `try?`로 삼켜서
+  분석 자체의 성공 여부(재시도 버튼 등 호출자 관점)에 영향을 안 준다.
+- `nextPendingForClassification()`(새 쿼리: `searchState=ready AND classificationState=pending`)이
+  이 기능이 생기기 전에 이미 분석만 끝나 있던 캡처도 `resumeIfNeeded()`의 두 번째 루프에서 마저
+  잡아준다.
+- `ClassificationService.classify()`는 사용자가 만든 폴더 전부를 서버에 보낸다. **기준
+  텍스트(`criteriaText`)를 안 적은 폴더는 폴더 이름(`displayName`)을 그 대신 기준으로 쓴다**
+  (`effectiveCriteria(for:)`, 2026-09-25 사용자 결정) — 기능명세서 §3.3.1이 원래 그리던
+  "사용자가 명시한 기준 우선, 표시 이름만으로 덮어쓰지 않음"에서 한 걸음 물러난 잠정 절충이다:
+  기준 입력을 귀찮아하는 사용자가 많을 거라는 판단으로, 이름만으로도 일단 분류가 되게 했다.
+  모호한 이름("중요" 등)을 잘못 판단할 위험은 별도 안전장치 없이 서버 프롬프트의 "직접 근거 없으면
+  uncertain" 규칙에만 기댄다 — 실제로 얼마나 잘 걸러지는지는 아직 실증 전이다. **폴더가 하나도
+  없으면 네트워크를 아예 안 탄다** — `SearchService`가 임베딩 버전 없을 때 서버를 안 부르는 것과
+  같은 절약 패턴. `match` 판정만 `applyAutoMatch`로 반영하고(스테일 기준 버전·사용자 직접 소속
+  보존은 이미 구현돼 있던 그 메서드가 알아서 함), `no_match`/`uncertain`은 아무 것도 안 한다.
+- `CaptureStoring`에 `fetchAnalysis(for:)`를 다시 추가했다 — DETAIL-01/Live Text 작업 때 안 쓰게
+  돼서 지웠던 그 메서드인데, 이번엔 다른 목적(분류가 OCR·관찰 내용을 읽어야 함)으로 다시 필요해졌다.
+- **DETAIL-01의 "다시 분석하기" 버튼을 ready(성공) 상태에서도 보이게 넓혔다**(2026-09-25 사용자
+  결정) — 원래는 `searchState == .failed`일 때만 보였는데, "폴더를 새로 만든 뒤 기존 캡처를 다시
+  분류해보고 싶다"는 요구가 있어서 실패가 아니어도 사용자가 원하면 처음부터(content_analysis
+  포함) 다시 돌릴 수 있게 했다. `AnalysisQueueService.retry()`/`CaptureDetailViewModel.retry()`
+  자체는 원래도 시작 상태를 안 가렸어서(코드 변경 없음), `CaptureDetailView`의 표시 조건만 바꿨다
+  — 캡처 하나씩만 되고 매번 실제 content_analysis(비용 발생)를 다시 돌린다. RECLASS-01(아래
+  절, 폴더 단위 일괄 재분류·content_analysis 재실행 없음)이 생긴 지금은 "폴더 하나를 통째로
+  다시 훑고 싶을 때"는 RECLASS-01 쪽이 훨씬 싸다 — 이 버튼은 "이 캡처 하나만 처음부터 다시"가
+  필요할 때만 쓰는 용도로 남는다.
+
+**아직 안 된 것**: 이 기능 자체를 위한 iOS 시뮬레이터 실기 검증(아래 참고), `folder_criteria`
+Job(모호한 폴더 기준을 AI가 다듬어주는 것), FOLDER-06 자동 분류 교정 UI.
+
+**⚠️ 실제로 겪은 버그 — classification Idempotency-Key가 재분석 후 재분류를 409로 막음
+(2026-09-25 발견·수정).** content_analysis의 Idempotency-Key 버그(위 절)를 고친 뒤에도 비슷한
+문제가 classification 쪽에 남아있었다: 키가 `capture.id`+`analysis_revision`으로만 만들어져서,
+"다시 분석하기"로 content_analysis를 재실행했을 때 Gemini의 OCR·관찰 내용 문구가 이전 실행과
+토씨까지 완전히 같다는 보장이 없어 — 조금이라도 다르면 서버가 "같은 키, 다른 요청 내용"으로
+보고 `409 IDEMPOTENCY_CONFLICT`를 던졌다. 실제로 캡처 하나를 재분석했을 때 content_analysis는
+성공(searchState=ready)했는데 classification만 "분류 보류"로 떨어지는 것으로 나타났다 — 서버
+job 테이블에서 이전 분류 성공 기록(같은 키)과 새 재분석 시도를 대조해서 알아냈다.
+`ClassificationService.classify()`가 `capture.analysisAttempt`(content_analysis 재시도 때
+쓰는 바로 그 값)를 키에 같이 넣도록 고쳤다 — "다시 분석하기" 한 번이 content_analysis·
+classification 두 키를 함께 새롭게 만든다. `ClassificationServiceTests`에 attempt가 키에
+반영되는지 회귀 테스트로 고정했다.
+
+**검증 이력 (2026-09-25, AI-03 추가·재분석 버그 수정 후)**: 테스트 126개 전부 통과. **시뮬레이터에서
+실제로 폴더 자동 분류가 동작하는 것까지 확인했다** — "운세" 폴더(기준 텍스트 없이 이름만)를
+만들고 분석 완료된 캡처에 자동 큐가 실제 Gemini classification 호출까지 보내는 것을 서버
+job 테이블로 확인. 위 Idempotency-Key 버그도 이 검증 과정에서 실제로 재현·발견했다.
+
+**RECLASS-01 재분류 확인이 붙었다 (2026-09-25).** ERD가 처음부터 갖고 있던 `ReclassificationRun`/
+`ReclassificationItem` 모델(§2)을 이번에 처음 실제로 썼다 — GRDB 테이블도 v1 마이그레이션에
+이미 있었는데 아무도 안 썼던 것들이다. `Persistence/ReclassificationStoring`
+(+`GRDBReclassificationStore`), `Services/ReclassificationService`(actor, preview→apply/cancel),
+`Features/Folder/ReclassificationView`·`ReclassificationViewModel`이 새로 생겼다.
+
+**content_analysis는 다시 안 돌린다** — 기능명세서 §3.3.2 "기존 검색·분석 정보를 재사용한다"대로,
+이미 저장된 OCR·관찰 내용으로 폴더 하나의 기준과만 다시 비교한다. `ClassificationService.classify(_:)`
+(캡처 하나·전체 폴더)와 별도로 `evaluateSingleFolder(capture:folder:)`(캡처 하나·폴더 하나, 반영은
+안 하고 판정만 돌려줌)를 추가해서 제출→폴링 로직만 공유한다.
+
+**흐름**: `ReclassificationService.preview(folderID:mode:)`가 (1) 같은 폴더에 확정 안 된 실행이
+있으면 `alreadyInProgress`로 막고(화면설계서 §11 "중복 실행 방지"), (2) 폴더의 현재
+`criteriaVersion`·`membershipRevision`을 고정한 `ReclassificationRun`을 만들고, (3) 분석 완료된
+캡처 전체(`CaptureStoring.fetchAnalyzedCaptures()`, 신규)를 이 폴더 기준으로 한 장씩 다시
+판정해서 `ReclassificationItem`(add/remove)을 계산한다. **캡처 수만큼 실제 Gemini 호출이 나간다**
+— 화면 진입 자체(폴더 메뉴의 "재분류", 생성 시트의 "기존 캡처에도 적용")가 이미 명시적 트리거라
+별도 확인 알럿은 안 뒀다. 캡처 하나의 판정이 실패해도(예: 503) 전체를 포기하지 않고 다음 캡처로
+넘어간다(`try?`로 삼킴) — AnalysisQueueService의 "실패해도 다음으로" 패턴과 같다.
+
+**사용자 직접 소속은 항상 보존한다(§11 핵심 규칙)**:
+- `match`인데 `blocked+manual`(사용자가 직접 뺌) → 추가 후보에서 아예 제외.
+- `no_match`/`uncertain`인데 `present+manual`(사용자가 직접 넣음) → 제거 후보에서 아예 제외.
+- 실제 "제거"는 `FolderStoring.applyAutoMismatchRemoval(captureID:from:criteriaVersion:)`(신규)이
+  한다 — `applyAutoMatch`와 대칭이지만, "제거"를 `blocked`로 표현하지 않고 **행을 그대로 지운다**.
+  `FolderCapture.state`는 ERD상 present/blocked 두 값뿐인데, blocked는 "사용자가 명시적으로 막음
+  (향후 영구히 재매치 금지)"이라는 의미라 AI가 재분류로 뺀 것과 구분이 안 되기 때문 — 행이
+  없으면 그냥 비소속이고, 나중에 진짜 다시 매치되면 `applyAutoMatch`가 자유롭게 다시 넣을 수 있다.
+
+**두 진입점이 화면·뷰모델을 공유한다**(`ReclassificationTarget`으로 구분): FOLDER-01 폴더 스와이프
+액션 "재분류"(`mode=.reclassify`), 새 폴더 생성 시트의 "기존 캡처에도 적용" 토글(`mode=.initialApply`,
+`.create` 모드에서만 보임 — §10.2 "직접 생성 시 선택"). `FolderEditViewModel.onSaved`가
+`(Folder, Bool)`로 바뀌어서 저장된 폴더와 "이어서 RECLASS-01을 열지" 여부를 같이 넘긴다.
+
+**적용(apply)은 항목별로 독립적으로 처리한다** — 미리보기 이후 폴더 기준이 바뀐 항목은
+`applyAutoMatch`/`applyAutoMismatchRemoval`의 스테일 가드가 그 항목만 조용히 건너뛰고(`skipped`),
+나머지는 정상 적용된다. 취소(`cancel`)는 기존 소속을 그대로 두고 실행만 `cancelled`로 남긴다 —
+둘 다 해당 폴더의 재분류를 다시 시작할 수 있게 실행을 확정 상태로 돌려놓는다(그래야
+`activeRun`이 다음 `preview()`를 막지 않는다).
+
+**아직 안 된 것**: FOLDER-06(자동 분류 교정 UI, 재분류 없이 개별 항목만 빠르게 수정) — RECLASS-01의
+전체 미리보기·확인 흐름과는 별개다. 실기기/시뮬레이터로 실제 재분류 성공 케이스(추가·제거가
+정말 반영되는 것)는 이 세션에서 서버 Gemini 호출까지 포함해 아직 눈으로 확인 전이다(테스트는
+Fake로 전부 통과).
+
+**테스트 (16개 추가, 총 142개)**: `ReclassificationServiceTests`(8, 미리보기 계산 규칙·중복 실행
+방지·부분 실패 내성·적용/취소), `PersistenceTests`에 `fetchFolder`·`applyAutoMismatchRemoval`(3)·
+`fetchAnalyzedCaptures`·`GRDBReclassificationStore` 라운드트립(6), `FolderEditViewModelTests`에
+`applyToExistingCaptures` 전달 확인(2).
+
+**HOME-01 상단 검색이 붙었다 (2026-09-25) — §7.1·§7.2를 뒤늦게 반영.** 처음엔 "HOME-01 상단 큰
+검색영역은 이번엔 안 넣는다"고 결정했었는데(BROWSE-01 하단 검색창만으로 충분하다고 봤음),
+사용자가 다시 원해서 추가했다. `HomeView`에 안내 문구·분석 진행 수·검색창을 한 덩어리로 두고
+(§7.1 스케치 그대로 "어떤 캡처를 찾고 있나요?" → "N/M장 분석 완료" → 검색창), 검색을 실행하면
+`.navigationDestination(item:)`으로 `BrowseView(scope: .all, ...)`를 새로 밀어 넣는다(§7.2:
+"BROWSE-01에 전체 범위·입력 검색어를 전달한다. 홈에서 결과 카드를 펼치지 않음").
+
+- `BrowseViewModel.init(initialQuery:)`(신규)가 넘겨받은 검색어로 `searchText`를 미리 채운다.
+  빈 검색어 실행은 애초에 `HomeView.executeSearch()`가 걸러서 `pendingSearch` 자체를 안 만든다
+  (§7.2: "빈 검색어 실행 | 검색 요청 없이 입력 유지").
+- **`BrowseView`의 진입 로직을 이 김에 고쳤다** — `.task`가 `searchText`가 비어있는지 보고
+  `load()`/`search()` 중 고르고, `.onAppear`(하위 화면에서 pop해 돌아왔을 때)는 `isSearchActive`면
+  아예 아무것도 안 한다. 원래는 `.onAppear`가 무조건 `load()`를 다시 불러서, 검색 결과를 보다가
+  DETAIL-01로 들어갔다 뒤로 가면 `isSearchActive`는 `true`로 남은 채 목록만 조용히 전체 목록으로
+  되돌아가는 불일치가 있었다 — 화면설계서 §2 "뒤로 가면 검색어·폴더·스크롤 위치 복원"을 어기고
+  있었던 셈이다. HOME-01 검색을 만들면서 바로 드러나 같이 고쳤다.
+- 홈 검색창의 마지막 입력은 `@State`로만 유지한다(화면설계서: "마지막 홈 입력을 유지하는
+  초안") — `NavigationStack`에서 자식을 pop해 돌아와도 `HomeView` 자체는 다시 안 만들어지니
+  별도 저장 없이도 값이 남는다.
+
+**테스트 (2개 추가, 총 144개)**: `BrowseViewModelTests`에 `initialQuery` 프리필·공백 무시 확인.
 
 **검증 이력 (2026-09-22, 자동 큐 추가 후)**: 테스트 72개(신규 `AnalysisQueueServiceTests` 6개,
 `PersistenceTests`에 큐 저장소 메서드 4개, `CaptureStoring` 프로토콜에 4개 메서드 추가) 전부 통과.
@@ -256,6 +400,46 @@ xcodebuild test -project CapPick.xcodeproj -scheme CapPick \
 **아직 확인 안 한 것**: ON-02(사진 권한 요청 창)·ON-03(분석 시작) 단계의 실제 탭 흐름, masonry(가변 높이) 레이아웃. CLI/AppleScript로는 화면을 안정적으로 탭할 수 없어(시뮬레이터 창을 AppleScript System Events가 못 잡음, 여러 번 시도했지만 실패) UI 테스트(XCUITest)도 아직 없다 — 필요하면 다음에 추가할 수 있다. 실제 App Attest(`AppAttestProvider`)는 Apple Developer 계정이 없어 전혀 테스트 못 했다. 시뮬레이터 창을 확대하고 사용자가 직접 탭하면 조작 자체는 가능하다는 걸 2026-09-22에 확인했다 — 창이 작으면(스케일 축소) 작은 탭 타깃이 자주 빗나간다.
 
 **검증 이력 (2026-09-22, 검색 추가 후)**: 테스트 88개(신규 `SearchRankingTests` 5개, `URLSessionSearchAPIClientTests` 3개, `PersistenceTests`에 검색 후보 저장소 메서드 5개, `BrowseViewModelTests`에 검색 3개 — 스테일 가드 포함) 전부 통과. 시뮬레이터에서 검색창·"결과 없음" 상태까지 실제로 확인했다(사용자가 직접 검색어를 입력·실행). **다만 실제로 매칭되는 검색 결과는 아직 못 봤다** — 오늘 세션 내내 Gemini 무료 한도가 소진돼 있어서 분석이 성공적으로 끝난 캡처가 하나도 없었고(`searchDocument` 0행), `SearchService`가 이 경우 서버 호출도 없이 빈 결과를 돌려주는 것까지는 로컬 DB로 확인됐다. 분석이 실제로 한 장이라도 성공하면 그다음으로 키워드·의미 검색 결과 자체를 확인할 것.
+
+## 검색 온디바이스 전환 — Phase 1·2 진행 중 (2026-09-25)
+
+검색을 서버(Gemini) 경유 없이 완전히 기기 안에서 처리하는 방향으로 전환하기로 했다(사용자
+결정). **아직 기존 검색 경로(`SearchService`/`SearchAPIClient`/서버 `/v1/search/prepare`)는
+전혀 안 건드렸다** — 새 코드는 전부 독립적으로 추가만 됐고, 평가(evaluation)로 품질을 확인한
+뒤에야 기존 경로를 교체·제거하는 단계별 계획의 앞부분(Phase 1·2)만 진행한 상태다.
+
+**Phase 1 완료 — `Services/LocalDateInterpreter.swift`.** "오늘·어제·이번 주·지난주·이번 달·
+지난달·올해·작년"을 로컬에서 파싱해 날짜 구간(시작 포함·끝 미포함)과 남은 검색어로 분리한다.
+띄어쓰기가 일관되지 않은 표기("이번 주"/"이번주")도 같이 받는다. 테스트 9개(월·연도 경계 넘는
+경우, 자정 근처, 시작 포함·끝 미포함 확인 등) 전부 통과.
+
+**Phase 2 코드는 완료, 실기(實機) 검증은 시뮬레이터 환경 문제로 보류 — `Services/OnDeviceEmbeddingService.swift`.**
+Apple `NLContextualEmbedding`(NaturalLanguage, iOS 17+)으로 캡처 검색용 텍스트·검색어를 같은
+모델로 벡터화한다. `NLContextualEmbedding(language: .korean)`이 실제로 `mul_Hani`(한·중·일
+통합 스크립트) 모델을 고르는 것까지 로그로 확인했다. 토큰별 벡터 시퀀스만 주는 API라
+(`enumerateTokenVectors`) mean pooling으로 문장 벡터 하나를 만든다. `modelIdentifier`+`revision`
+(둘 다 실제 로드된 모델 인스턴스에서 읽음, 하드코딩 아님)을 합쳐 `SearchDocument.embeddingModelVersion`에
+쓸 문자열을 만든다 — OS가 모델을 갱신해도 이 값이 자동으로 달라지니 기존 벡터와의 불일치를
+그대로 감지할 수 있다.
+
+**⚠️ 실제로 겪은 막힘 — 시뮬레이터의 알려진 버그, 우리 코드 문제 아님.** 시뮬레이터에서
+`NLContextualEmbeddingServiceTests`를 돌리면 전부 이 에러로 실패한다:
+```
+filesystem error: in create_directories: Permission denied
+["/var/db/com.apple.naturallanguaged/com.apple.e5rt.e5bundlecache"]
+```
+모델 에셋 자체는 시뮬레이터에 이미 있는 것까지 로그로 확인했다(`local path is ... exists: YES`) —
+막히는 지점은 그 모델을 컴파일해서 캐시에 쓰는 단계뿐이다. 이 캐시 디렉터리는
+`_naturallanguaged`라는 시스템 계정 소유라 일반 사용자 권한으로는 못 쓴다. Apple Developer
+Forums에도 같은 증상(스레드 #799951)이 올라와 있는 걸로 봐서 이 Xcode/시뮬레이터 조합의 알려진
+버그로 보인다 — `sudo`로 시스템 디렉터리 권한을 바꾸는 건 효과가 불확실하고 위험해서 시도 안
+했다. `xcodebuild test`(CLI)와 Xcode GUI(Cmd+U) 양쪽 다 같은 에러가 나는지는 다음에 Xcode에서
+직접 확인할 것 — 실기기에서는 이 문제가 아예 없을 가능성이 높다(Apple Developer Program
+미가입이라 아직 실기기 자체가 없음).
+
+**아직 안 한 것**: 세 가지 검색 방식(substring-only / embedding-only / hybrid RRF)을 같은
+한국어 질의·캡처로 비교하는 평가 하네스, `SearchRanking`의 RRF 전환, 기존 검색 경로 교체·
+서버 코드 제거(Phase 3 이후) — 전부 Phase 2 품질 검증이 끝난 뒤에나 진행한다.
 
 ## 현재 설정값 (모두 잠정치, 필요 시 `project.yml`에서 수정)
 

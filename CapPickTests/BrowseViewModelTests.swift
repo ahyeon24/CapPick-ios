@@ -15,13 +15,18 @@ final class BrowseViewModelTests: XCTestCase {
     }
 
     private func makeAnalysisQueueService(captureStore: GRDBCaptureStore, database: AppDatabase) throws -> AnalysisQueueService {
+        let registrar = try makeRegistrar()
         let contentAnalysisService = ContentAnalysisService(
-            jobAPIClient: FakeJobAPIClient(), installationRegistrar: try makeRegistrar(),
+            jobAPIClient: FakeJobAPIClient(), installationRegistrar: registrar,
             captureStore: captureStore, imageProvider: FakeCaptureImageProviding()
+        )
+        let classificationService = ClassificationService(
+            classificationAPIClient: FakeClassificationAPIClient(), installationRegistrar: registrar,
+            captureStore: captureStore, folderStore: GRDBFolderStore(database: database)
         )
         return AnalysisQueueService(
             captureStore: captureStore, contentAnalysisService: contentAnalysisService,
-            appStateStore: GRDBAppStateStore(database: database)
+            classificationService: classificationService, appStateStore: GRDBAppStateStore(database: database)
         )
     }
 
@@ -135,6 +140,30 @@ final class BrowseViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.captures.map(\.id), ["matching"])
         XCTAssertTrue(viewModel.isSearchActive)
+    }
+
+    // HOME-01 상단 검색에서 넘어올 때 쓴다(§2 흐름) — BrowseView.task가 이 값을 보고 곧바로
+    // search()를 부른다(load()가 아니라).
+    func testInitialQueryPrefillsSearchText() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        let viewModel = BrowseViewModel(
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database),
+            analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            searchService: try makeSearchService(captureStore: store), initialQuery: "면접")
+
+        XCTAssertEqual(viewModel.searchText, "면접")
+    }
+
+    func testMissingOrBlankInitialQueryLeavesSearchTextEmpty() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        let viewModel = BrowseViewModel(
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database),
+            analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            searchService: try makeSearchService(captureStore: store), initialQuery: "   ")
+
+        XCTAssertEqual(viewModel.searchText, "")
     }
 
     func testClearingSearchTextReturnsToFullNewestFirstList() async throws {

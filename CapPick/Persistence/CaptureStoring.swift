@@ -69,4 +69,32 @@ protocol CaptureStoring: Sendable {
     /// DETAIL-06 캡픽에서 제외. Self.visible이 이미 excludedAt IS NULL을 요구하므로, 이후
     /// fetchAll/fetch(in:)/fetchUnclassified/검색 후보 등 모든 조회에서 자동으로 빠진다.
     func exclude(_ captureID: String, at date: Date) async throws
+
+    /// 사용자가 명시적으로 재시도할 때만 호출한다(AnalysisQueueService.retry) — 실패 후 재시도는
+    /// 직전 시도와 다른 논리적 요청이라 서버 Idempotency-Key도 새로 만들어야 한다. 자동 큐가 pending
+    /// 캡처를 처음 집을 때는 호출하지 않는다(앱이 죽어 processing에서 되돌아온 것과 구분이 안 됨).
+    func incrementAnalysisAttempt(_ captureID: String) async throws
+
+    /// AI-03 자동 분류(ClassificationService)가 이 캡처의 OCR·관찰 내용을 읽을 때 쓴다. 분석 전이거나
+    /// 실패했으면 nil.
+    func fetchAnalysis(for captureID: String) async throws -> CaptureAnalysis?
+
+    /// 자동 분류 큐가 다음으로 처리할 캡처: 접근 가능·제외 아님·searchState ready(분석 완료)·
+    /// classificationState pending 중 최근 캡처 하나. nextPendingForAnalysis()와 짝 — 분석 큐가
+    /// 다 돈 뒤 이 큐가 이어서 돈다(AnalysisQueueService.resumeIfNeeded).
+    func nextPendingForClassification() async throws -> Capture?
+
+    func markClassificationProcessing(_ captureID: String) async throws
+
+    /// 판정이 전부 끝났을 때 부른다 — match가 하나도 없어도(또는 비교할 폴더가 아예 없어도)
+    /// complete다. 실제 소속 반영은 FolderStoring.applyAutoMatch가 따로 한다.
+    func markClassificationComplete(_ captureID: String) async throws
+
+    /// searchState의 failed와 같은 규칙 — 이후 nextPendingForClassification()에서 더 이상 안 집힌다.
+    func markClassificationFailed(_ captureID: String) async throws
+
+    /// RECLASS-01 후보: 분석이 끝나(searchState=ready) 접근 가능·제외 안 된 캡처 전체.
+    /// classificationState는 안 가린다 — 특정 폴더 하나를 기준으로 다시 판정하는 것이라 자동
+    /// 분류 파이프라인의 전체 진행 상태와는 무관하다.
+    func fetchAnalyzedCaptures() async throws -> [Capture]
 }

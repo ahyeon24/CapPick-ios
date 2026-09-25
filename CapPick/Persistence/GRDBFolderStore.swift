@@ -19,6 +19,12 @@ struct GRDBFolderStore: FolderStoring {
         }
     }
 
+    func fetchFolder(id: String) async throws -> Folder? {
+        try await database.dbWriter.read { db in
+            try Folder.fetchOne(db, key: id)
+        }
+    }
+
     func delete(id: String) async throws {
         try await database.dbWriter.write { db in
             _ = try Folder.deleteOne(db, key: id)
@@ -90,6 +96,35 @@ struct GRDBFolderStore: FolderStoring {
             try Self.writeMembership(
                 db, folder: folder, captureID: captureID,
                 state: .present, source: .auto, evidence: evidence
+            )
+            return .applied
+        }
+    }
+
+    func applyAutoMismatchRemoval(
+        captureID: String,
+        from folderID: String,
+        criteriaVersion: Int
+    ) async throws -> AutoMatchResult {
+        try await database.dbWriter.write { db in
+            let folder = try Self.requireFolder(db, folderID)
+            guard folder.criteriaVersion == criteriaVersion else { return .ignoredStaleCriteria }
+
+            let key = ["folderID": folderID, "captureID": captureID]
+            guard let existing = try FolderCapture.fetchOne(db, key: key),
+                  existing.state == .present, existing.source == .auto else {
+                // 없거나(row 자체가 없음) manual/blocked면 건드리지 않는다 — 직접 소속은 항상 보존.
+                return .ignoredUserDecision
+            }
+
+            // FolderCapture.state는 present/blocked 두 값뿐이다(ERD §2) — "제거"를 blocked로
+            // 표현하면 사용자가 직접 뺀 것과 구분이 안 되고, 향후 진짜 재매치까지 영구히 막아버린다.
+            // 그래서 행을 그대로 지운다: 행이 없으면 비소속일 뿐이고, 나중에 applyAutoMatch가
+            // 다시 자유롭게 추가할 수 있다.
+            _ = try FolderCapture.deleteOne(db, key: key)
+            try db.execute(
+                sql: "UPDATE folder SET membershipRevision = membershipRevision + 1 WHERE id = ?",
+                arguments: [folderID]
             )
             return .applied
         }

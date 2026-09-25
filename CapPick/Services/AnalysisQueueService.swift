@@ -6,9 +6,16 @@ import Foundation
 /// ContentAnalysisService(제출→폴링→저장, 한 장 처리) 자체는 건드리지 않는다 — processing/failed
 /// 마킹은 이 레이어의 책임으로 분리돼 있다(ContentAnalysisServiceTests가 "실패해도 searchState를
 /// 건드리지 않는다"를 이미 고정해뒀기 때문).
+///
+/// 분석이 끝나면 같은 캡처를 바로 이어서 자동 분류(AI-03, ClassificationService)까지 돌린다 —
+/// "갤러리의 모든 스크린샷을 서비스가 다 처리해준다"는 제품 방향(§1.4)에 맞춰 사용자가 분류를
+/// 따로 트리거할 필요가 없게 한다. 분류 실패는 분석 자체의 성공 여부에 영향을 주지 않는다(별도
+/// classificationState). classificationState=pending인데 searchState는 이미 ready인 캡처
+/// (이 기능이 생기기 전에 분석만 끝났던 캡처 포함)는 nextPendingForClassification()이 따로 잡는다.
 actor AnalysisQueueService {
     private let captureStore: any CaptureStoring
     private let contentAnalysisService: ContentAnalysisService
+    private let classificationService: ClassificationService
     private let appStateStore: any AppStateStoring
 
     private var isRunning = false
@@ -16,10 +23,12 @@ actor AnalysisQueueService {
     init(
         captureStore: any CaptureStoring,
         contentAnalysisService: ContentAnalysisService,
+        classificationService: ClassificationService,
         appStateStore: any AppStateStoring
     ) {
         self.captureStore = captureStore
         self.contentAnalysisService = contentAnalysisService
+        self.classificationService = classificationService
         self.appStateStore = appStateStore
     }
 
@@ -40,12 +49,24 @@ actor AnalysisQueueService {
             // 같은 실행에서 무한히 재시도하지 않는다.
             try? await analyzeOneCapture(capture)
         }
+        // 분석은 끝났지만(searchState=ready) 아직 분류가 안 된 캡처를 마저 처리한다 — 위 루프에서
+        // 방금 분석된 것들과, 이 기능이 생기기 전에 분석만 끝나 있던 것들 둘 다 여기서 잡힌다.
+        while let capture = try? await captureStore.nextPendingForClassification() {
+            try? await classifyOneCapture(capture)
+        }
     }
 
     /// 실패한 캡처를 사용자가 명시적으로 재시도할 때(Browse의 재시도 버튼). 실패하면 다시
     /// failed로 남기고 에러를 그대로 던져 호출자가 이유를 보여줄 수 있게 한다.
+    ///
+    /// analysisAttempt를 여기서 증가시킨다 — 같은 캡처·같은 content_revision이라도 서버가 이전
+    /// 실패 작업을 그대로 돌려주지 않고 실제로 다시 분석하게 하려면 Idempotency-Key가 매번
+    /// 달라져야 한다(서버 job 테이블에 영원히 QUEUED로 멈춘 옛 작업이 재시도를 계속 가로채던
+    /// 버그를 2026-09-25에 이렇게 고쳤다).
     func retry(_ capture: Capture) async throws {
-        try await analyzeOneCapture(capture)
+        try await captureStore.incrementAnalysisAttempt(capture.id)
+        let refreshed = try await captureStore.fetchCapture(id: capture.id) ?? capture
+        try await analyzeOneCapture(refreshed)
     }
 
     private func analyzeOneCapture(_ capture: Capture) async throws {
@@ -54,6 +75,22 @@ actor AnalysisQueueService {
             try await contentAnalysisService.analyze(capture)
         } catch {
             try? await captureStore.markSearchFailed(capture.id)
+            throw error
+        }
+        // 분석 성공 직후 바로 분류까지 이어간다. 분류가 실패해도 분석 자체는 이미 성공했으니
+        // 그 결과를 던지지 않는다 — 호출자(retry() 등)는 분석 성공/실패만 신경 쓰면 된다.
+        if let refreshed = try? await captureStore.fetchCapture(id: capture.id) {
+            try? await classifyOneCapture(refreshed)
+        }
+    }
+
+    private func classifyOneCapture(_ capture: Capture) async throws {
+        try await captureStore.markClassificationProcessing(capture.id)
+        do {
+            try await classificationService.classify(capture)
+            try await captureStore.markClassificationComplete(capture.id)
+        } catch {
+            try? await captureStore.markClassificationFailed(capture.id)
             throw error
         }
     }

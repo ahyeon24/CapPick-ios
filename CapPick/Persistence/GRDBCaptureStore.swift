@@ -245,6 +245,60 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
+    func incrementAnalysisAttempt(_ captureID: String) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET analysisAttempt = analysisAttempt + 1 WHERE id = ?", arguments: [captureID])
+        }
+    }
+
+    func fetchAnalysis(for captureID: String) async throws -> CaptureAnalysis? {
+        try await database.dbWriter.read { db in
+            try CaptureAnalysis.fetchOne(db, key: captureID)
+        }
+    }
+
+    func nextPendingForClassification() async throws -> Capture? {
+        try await database.dbWriter.read { db in
+            try Capture.fetchOne(db, sql: """
+                SELECT * FROM capture
+                WHERE \(Self.visible)
+                  AND capture.searchState = 'ready'
+                  AND capture.classificationState = 'pending'
+                ORDER BY capturedAt DESC
+                LIMIT 1
+                """)
+        }
+    }
+
+    func markClassificationProcessing(_ captureID: String) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET classificationState = 'processing' WHERE id = ?", arguments: [captureID])
+        }
+    }
+
+    func markClassificationComplete(_ captureID: String) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET classificationState = 'complete' WHERE id = ?", arguments: [captureID])
+        }
+    }
+
+    func markClassificationFailed(_ captureID: String) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET classificationState = 'failed' WHERE id = ?", arguments: [captureID])
+        }
+    }
+
+    func fetchAnalyzedCaptures() async throws -> [Capture] {
+        try await database.dbWriter.read { db in
+            try Capture.fetchAll(db, sql: """
+                SELECT * FROM capture
+                WHERE \(Self.visible)
+                  AND capture.searchState = 'ready'
+                ORDER BY capturedAt DESC
+                """)
+        }
+    }
+
     func currentProgress() async throws -> AnalysisProgress {
         try await database.dbWriter.read { db in
             let row = try Row.fetchOne(db, sql: """

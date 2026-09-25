@@ -24,7 +24,14 @@ struct FolderEditView: View {
                 } header: {
                     Text("분류 기준 (선택)")
                 } footer: {
-                    Text("나중에 자동 분류 기능이 생기면 이 기준으로 캡처를 판단해요. 지금은 참고용으로만 저장돼요.")
+                    Text("이 기준으로 새로 분석되는 캡처가 자동으로 분류돼요. 비워두면 폴더 이름을 기준으로 대신 써요.")
+                }
+                if viewModel.isCreating {
+                    Section {
+                        Toggle("기존 캡처에도 적용", isOn: $viewModel.applyToExistingCaptures)
+                    } footer: {
+                        Text("저장 후 이미 분석된 캡처 중 이 기준에 맞는 것을 찾아 보여줘요.")
+                    }
                 }
                 if let message = viewModel.errorMessage {
                     Text(message).foregroundStyle(.red)

@@ -152,6 +152,10 @@ final class OnboardingViewModelTests: XCTestCase {
             jobAPIClient: FakeJobAPIClient(), installationRegistrar: registrar,
             captureStore: captures, imageProvider: FakeCaptureImageProviding()
         )
+        let classificationService = ClassificationService(
+            classificationAPIClient: FakeClassificationAPIClient(), installationRegistrar: registrar,
+            captureStore: captures, folderStore: folders
+        )
         let viewModel = HomeViewModel(
             library: library,
             syncService: ScreenshotSyncService(library: library, captureStore: captures),
@@ -159,7 +163,8 @@ final class OnboardingViewModelTests: XCTestCase {
             folderStore: folders,
             appStateStore: appState,
             analysisQueueService: AnalysisQueueService(
-                captureStore: captures, contentAnalysisService: contentAnalysisService, appStateStore: appState)
+                captureStore: captures, contentAnalysisService: contentAnalysisService,
+                classificationService: classificationService, appStateStore: appState)
         )
 
         await viewModel.refresh()

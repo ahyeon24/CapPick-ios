@@ -42,7 +42,9 @@ struct RootView: View {
                 folderStore: environment.folderStore,
                 thumbnailLoader: environment.thumbnailLoader,
                 analysisQueueService: environment.analysisQueueService,
-                searchService: environment.searchService
+                searchService: environment.searchService,
+                reclassificationStore: environment.reclassificationStore,
+                reclassificationService: environment.reclassificationService
             )
         }
     }
