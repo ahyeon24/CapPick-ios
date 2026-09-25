@@ -413,33 +413,72 @@ xcodebuild test -project CapPick.xcodeproj -scheme CapPick \
 띄어쓰기가 일관되지 않은 표기("이번 주"/"이번주")도 같이 받는다. 테스트 9개(월·연도 경계 넘는
 경우, 자정 근처, 시작 포함·끝 미포함 확인 등) 전부 통과.
 
-**Phase 2 코드는 완료, 실기(實機) 검증은 시뮬레이터 환경 문제로 보류 — `Services/OnDeviceEmbeddingService.swift`.**
-Apple `NLContextualEmbedding`(NaturalLanguage, iOS 17+)으로 캡처 검색용 텍스트·검색어를 같은
-모델로 벡터화한다. `NLContextualEmbedding(language: .korean)`이 실제로 `mul_Hani`(한·중·일
-통합 스크립트) 모델을 고르는 것까지 로그로 확인했다. 토큰별 벡터 시퀀스만 주는 API라
-(`enumerateTokenVectors`) mean pooling으로 문장 벡터 하나를 만든다. `modelIdentifier`+`revision`
-(둘 다 실제 로드된 모델 인스턴스에서 읽음, 하드코딩 아님)을 합쳐 `SearchDocument.embeddingModelVersion`에
-쓸 문자열을 만든다 — OS가 모델을 갱신해도 이 값이 자동으로 달라지니 기존 벡터와의 불일치를
-그대로 감지할 수 있다.
+**Phase 2 — `NLContextualEmbedding`에서 ONNX Runtime 기반으로 방향 전환 (2026-09-25).**
+처음엔 Apple `NLContextualEmbedding`(NaturalLanguage, iOS 17+)으로 구현했지만, 시뮬레이터에서
+`filesystem error: in create_directories: Permission denied
+["/var/db/com.apple.naturallanguaged/com.apple.e5rt.e5bundlecache"]`로 막혀 검증 자체가 안 됐다
+(`_naturallanguaged` 시스템 계정 소유 디렉터리라 일반 권한으론 못 씀, CLI·Xcode GUI·시뮬레이터
+2종 전부 동일 — Apple Developer Forums 스레드 #799951과 같은 증상, 알려진 OS/시뮬레이터 버그).
+그 와중에 Android 출시 가능성이 논의에 들어오면서(사용자 결정) 애초에 OS가 내려주는 모델에
+기대는 접근 자체를 재고했다 — `NLContextualEmbedding`은 iOS 전용이라 Android와 벡터 공간을
+맞출 방법이 없었다.
 
-**⚠️ 실제로 겪은 막힘 — 시뮬레이터의 알려진 버그, 우리 코드 문제 아님.** 시뮬레이터에서
-`NLContextualEmbeddingServiceTests`를 돌리면 전부 이 에러로 실패한다:
-```
-filesystem error: in create_directories: Permission denied
-["/var/db/com.apple.naturallanguaged/com.apple.e5rt.e5bundlecache"]
-```
-모델 에셋 자체는 시뮬레이터에 이미 있는 것까지 로그로 확인했다(`local path is ... exists: YES`) —
-막히는 지점은 그 모델을 컴파일해서 캐시에 쓰는 단계뿐이다. 이 캐시 디렉터리는
-`_naturallanguaged`라는 시스템 계정 소유라 일반 사용자 권한으로는 못 쓴다. Apple Developer
-Forums에도 같은 증상(스레드 #799951)이 올라와 있는 걸로 봐서 이 Xcode/시뮬레이터 조합의 알려진
-버그로 보인다 — `sudo`로 시스템 디렉터리 권한을 바꾸는 건 효과가 불확실하고 위험해서 시도 안
-했다. `xcodebuild test`(CLI)와 Xcode GUI(Cmd+U) 양쪽 다 같은 에러가 나는지는 다음에 Xcode에서
-직접 확인할 것 — 실기기에서는 이 문제가 아예 없을 가능성이 높다(Apple Developer Program
-미가입이라 아직 실기기 자체가 없음).
+**그래서 `intfloat/multilingual-e5-small`(MIT, 384차원, XLM-R 계열 토크나이저 + BERT 계열
+인코더)을 ONNX 형식으로 앱 번들에 직접 넣고 ONNX Runtime Mobile로 돌리는 쪽으로 바꿨다** —
+`Services/OnnxEmbeddingService.swift`. OS 에셋이 아니라 앱이 들고 다니는 고정 파일이라
+시뮬레이터 캐시 권한 문제 자체가 없고, Android에서도 같은 `.onnx`를 ONNX Runtime Mobile로
+돌리면 커널 차이 없이 동일 벡터가 나온다(Core ML/LiteRT로 각각 별도 변환하는 것보다 벡터 공간이
+어긋날 위험이 적다는 게 크로스플랫폼 후보 비교 결론이었다).
+
+- **번들 자산**: `CapPick/Resources/E5Small/`에 `model_quantized.onnx`(약 113MB, int8 동적
+  양자화), `tokenizer.json`, `tokenizer_config.json`. **intfloat 원본 저장소가 아니라
+  `Xenova/multilingual-e5-small`(HF, transformers.js 팀)에서 받았다** — intfloat 원본의 유일한
+  int8 버전(`onnx/model_qint8_avx512_vnni.onnx`)은 이름 그대로 Intel AVX512-VNNI 전용으로
+  양자화돼 있어 ARM(iOS·Android 둘 다)에 쓰기엔 위험 부담이 있었고, Xenova 버전은 브라우저
+  WASM 실행을 전제로 애초에 하드웨어 독립적으로 양자화돼 있어 더 안전한 선택이었다.
+- **의존성(`project.yml`)**: `microsoft/onnxruntime-swift-package-manager`(SPM, ONNX Runtime
+  Mobile 공식 바인딩 — import는 `OnnxRuntimeBindings`, 패키지가 선언하는 라이브러리 product
+  이름 `onnxruntime`과 실제 Swift 모듈 이름이 다르다는 걸 빌드 에러로 처음 알았다),
+  `huggingface/swift-transformers`의 `Tokenizers` product(HF의 `tokenizer.json`을 그대로
+  로드 — `AutoTokenizer.from(modelFolder:)`, Hub 네트워크 호출 없이 완전히 로컬로 동작).
+- **⚠️ 실제로 겪은 버그 — XcodeGen이 리소스 폴더를 통째로 평평하게 만듦.** 처음엔
+  `CapPick/Resources/E5Small`을 그냥 `sources: - path: CapPick`에 맡겼더니, 빌드된
+  `.app` 안에 `E5Small/` 서브폴더 없이 `model_quantized.onnx`가 번들 루트에 그대로 흩뿌려졌다
+  (`Bundle.main.url(forResource: "E5Small", withExtension: nil)`이 nil). XcodeGen이 일반
+  그룹(노란 폴더)으로 다루면 내부 파일들을 개별 리소스로 펼쳐버리기 때문 — `project.yml`에서
+  `CapPick` 소스 경로는 `Resources/E5Small`을 `excludes`로 빼고, 그 경로를 `type: folder`로
+  별도 선언해서(파란 폴더 참조) 실제 디렉터리 구조가 번들 안에 그대로 보존되게 고쳤다.
+- **모델 구조**: BERT 계열이라 `input_ids`/`attention_mask`/`token_type_ids` 3개를 받고
+  `last_hidden_state`([1, seq_len, 384])만 내놓는다(`pooler_output` 없음, `onnx`/`transformers`
+  Python 라이브러리로 그래프 입출력을 직접 확인함) — mean pooling(attention_mask 가중, 지금은
+  배치 없이 한 번에 텍스트 하나만 처리해서 패딩이 없으니 항상 전부 1)과 L2 정규화를 서비스가
+  직접 한다(모델 카드의 공식 `average_pool` 사용법과 동일). E5 관례대로 검색어는
+  `"query: "`, 색인 대상 텍스트는 `"passage: "` 접두어를 붙인다(`OnnxEmbeddingInputKind`).
+  `modelVersion`은 `NLContextualEmbedding` 때와 달리 고정 문자열
+  (`"multilingual-e5-small-quantized-1"`)이다 — OS가 갱신할 수 있는 자산이 아니라 앱이 들고
+  다니는 고정 파일이라, 벡터 공간이 바뀌는 유일한 경우는 이 번들 자산을 다른 버전으로 교체하며
+  상수도 같이 올릴 때뿐이다.
+- **테스트(`OnnxEmbeddingServiceTests`, 7개, 시뮬레이터에서 실제 모델로 전부 통과)**: 로드,
+  차원 일관성(384), 결정론적 재현, L2 정규화(norm≈1), query/passage 접두어가 다르면 벡터도
+  다름, 빈 텍스트 에러. **`testSemanticallySimilarTextsAreCloserThanUnrelatedOnes`가 이 모델을
+  선택한 근거를 최소한으로 검증한다** — "사주 운세를 봤다"와 "오늘의 운세가 궁금해서 사주를
+  봤다"(다른 표현, 같은 의미)의 코사인 유사도가 "파스타 맛집 데이트 코스 추천"(무관)보다 실제로
+  높게 나왔다 — 다음 단계로 예정된 평가 하네스 전에 방향이 맞다는 걸 실제 값으로 먼저 확인.
+- **아직 파악 안 한 것**: `onnxruntime-swift-package-manager`는 과거 "unsafe build flags"로
+  App Store 제출 검증에 걸린 이슈가 있었고(최신 릴리스에서 고쳐졌다고 함, 지금 쓰는 1.24.2는
+  이 문제 이후 버전) 커뮤니티 포크(`ntna141/onnxruntime-ios-swift-package`)가 따로 있을 정도로
+  실제 제출 단계에서 다시 겪을 수 있다 — 지금은 제출을 안 하니 무시했지만, 나중에 Archive/제출
+  단계에서 막히면 이 이슈부터 의심할 것. 추론 속도(시뮬레이터에서 첫 호출 포함 1.5~1.9초/건,
+  모델 로드 캐싱 전 수치라 워밍업 후 실제 검색 지연은 이보다 짧을 가능성이 큼)도 실기기에서
+  다시 재봐야 한다.
+- **삭제함**: `NLContextualEmbedding` 기반이었던 `Services/OnDeviceEmbeddingService.swift`와
+  `CapPickTests/OnDeviceEmbeddingServiceTests.swift` — 시뮬레이터 버그로 검증 자체가 막혀 있었고
+  방향을 아예 바꿨으니 남겨둘 이유가 없다는 사용자 판단으로 지웠다(git 이력엔 남아있음).
 
 **아직 안 한 것**: 세 가지 검색 방식(substring-only / embedding-only / hybrid RRF)을 같은
 한국어 질의·캡처로 비교하는 평가 하네스, `SearchRanking`의 RRF 전환, 기존 검색 경로 교체·
-서버 코드 제거(Phase 3 이후) — 전부 Phase 2 품질 검증이 끝난 뒤에나 진행한다.
+서버 코드 제거(Phase 3 이후) — 전부 Phase 2 품질 검증이 끝난 뒤에나 진행한다. **이 서비스도
+`SearchService`에는 아직 연결 안 했다** — 지금까지처럼 평가용으로 병행 존재하는 상태다.
 
 ## 현재 설정값 (모두 잠정치, 필요 시 `project.yml`에서 수정)
 

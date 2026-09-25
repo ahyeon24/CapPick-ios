@@ -13,14 +13,29 @@ packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift
     from: 7.0.0
+  OnnxRuntime:
+    url: https://github.com/microsoft/onnxruntime-swift-package-manager
+    from: 1.20.0
+  SwiftTransformers:
+    url: https://github.com/huggingface/swift-transformers
+    from: 1.0.0
 targets:
   CapPick:
     type: application
     platform: iOS
     sources:
       - path: CapPick
+        excludes:
+          - Resources/E5Small
+      - path: CapPick/Resources/E5Small
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: GRDB
+      - package: OnnxRuntime
+        product: onnxruntime
+      - package: SwiftTransformers
+        product: Tokenizers
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cappick.ios
