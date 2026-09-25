@@ -56,6 +56,19 @@ final class SearchStrategyEvaluationTests: XCTestCase {
         Document(id: "netflix", text: "넷플릭스 추천 드라마 목록 캡처해둠"),
         Document(id: "weather", text: "날씨 앱 캡처 이번주 미세먼지 나쁨"),
         Document(id: "recipe", text: "김치찌개 레시피 캡처 재료 손질법"),
+        // 아래는 "나머지 문맥은 거의 동일하고 숫자·고유명사 한 글자만 다른" 짝 — embedding이
+        // 상대적으로 약할 수 있고 정확한 문자열 검색이 강할 거라 예상되는 케이스를 더 넣은 것
+        // (사용자 요청, 2026-09-25). 에러 코드·과목 코드·장소명·상품 모델명·날짜.
+        Document(id: "error503", text: "서버 응답 503 Service Unavailable 에러 로그 캡처"),
+        Document(id: "error504", text: "API 요청 실패 504 Gateway Timeout 에러 로그 캡처"),
+        Document(id: "cs101", text: "CS101 자료구조 중간고사 범위 공지 캡처"),
+        Document(id: "cs201", text: "CS201 알고리즘 중간고사 범위 공지 캡처"),
+        Document(id: "sokcho", text: "속초 여행 사진 캡처 바다 풍경"),
+        Document(id: "songnisan", text: "속리산 등산 사진 캡처 단풍 풍경"),
+        Document(id: "iphone15", text: "아이폰 15 프로 가격 비교 캡처"),
+        Document(id: "iphone14", text: "아이폰 14 프로 가격 비교 캡처"),
+        Document(id: "meeting0925", text: "9월 25일 회의록 캡처 스프린트 계획"),
+        Document(id: "meeting0926", text: "9월 26일 회의록 캡처 스프린트 계획"),
     ]
 
     private static let evalCases: [EvalCase] = [
@@ -72,6 +85,11 @@ final class SearchStrategyEvaluationTests: XCTestCase {
         EvalCase(label: "브랜드 정확 일치 - 스타벅스", query: "스타벅스 영수증", expectedDocumentID: "starbucks", kind: .exactStringFavoring),
         EvalCase(label: "운송장번호 정확 일치", query: "394857102934", expectedDocumentID: "trackingA", kind: .exactStringFavoring),
         EvalCase(label: "출구 번호 정확 일치 - 강남역 3번", query: "강남역 3번 출구", expectedDocumentID: "gangnam3", kind: .exactStringFavoring),
+        EvalCase(label: "에러 코드 정확 일치 - 503", query: "503 에러", expectedDocumentID: "error503", kind: .exactStringFavoring),
+        EvalCase(label: "과목 코드 정확 일치 - CS101", query: "CS101 범위", expectedDocumentID: "cs101", kind: .exactStringFavoring),
+        EvalCase(label: "장소명 정확 일치 - 속초", query: "속초 여행", expectedDocumentID: "sokcho", kind: .exactStringFavoring),
+        EvalCase(label: "상품 모델명 정확 일치 - 아이폰 15", query: "아이폰 15 프로 가격", expectedDocumentID: "iphone15", kind: .exactStringFavoring),
+        EvalCase(label: "날짜 정확 일치 - 9월 25일", query: "9월 25일 회의록", expectedDocumentID: "meeting0925", kind: .exactStringFavoring),
     ]
 
     /// RRF 문헌의 표준값 k=60은 웹 규모(수천~수만 개 깊은 순위)에서 튜닝된 값이다 — k가 클수록
