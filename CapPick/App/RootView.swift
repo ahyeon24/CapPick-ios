@@ -44,7 +44,9 @@ struct RootView: View {
                 analysisQueueService: environment.analysisQueueService,
                 searchService: environment.searchService,
                 reclassificationStore: environment.reclassificationStore,
-                reclassificationService: environment.reclassificationService
+                reclassificationService: environment.reclassificationService,
+                usageService: environment.usageService,
+                appDataDeletionService: environment.appDataDeletionService
             )
         }
     }

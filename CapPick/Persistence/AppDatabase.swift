@@ -15,6 +15,24 @@ struct AppDatabase: Sendable {
         try AppDatabase(DatabaseQueue())
     }
 
+    /// 앱 데이터 삭제(기능명세서 §3.8) — 로컬 DB의 모든 테이블을 한 트랜잭션으로 비운다.
+    /// 사진 원본은 안 건드린다(GRDB 밖, PHAsset 참조일 뿐). 이후 모든 화면은 "새로 시작"으로
+    /// 취급된다 — `appState`(온보딩 완료 여부 포함)도 같이 지운다(사용자 결정, 2026-09-26).
+    /// FK 제약 때문에 자식 테이블부터 지운다.
+    func eraseAllLocalData() async throws {
+        try await dbWriter.write { db in
+            try ReclassificationItem.deleteAll(db)
+            try ReclassificationRun.deleteAll(db)
+            try LocalTask.deleteAll(db)
+            try FolderCapture.deleteAll(db)
+            try Folder.deleteAll(db)
+            try SearchDocument.deleteAll(db)
+            try CaptureAnalysis.deleteAll(db)
+            try Capture.deleteAll(db)
+            try AppStateEntry.deleteAll(db)
+        }
+    }
+
     static func makeOnDisk() throws -> AppDatabase {
         let directory = try FileManager.default.url(
             for: .applicationSupportDirectory,

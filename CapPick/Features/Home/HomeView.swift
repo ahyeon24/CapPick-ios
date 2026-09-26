@@ -13,8 +13,11 @@ struct HomeView: View {
     private let searchService: SearchService
     private let reclassificationStore: any ReclassificationStoring
     private let reclassificationService: ReclassificationService
+    private let usageService: UsageService
+    private let appDataDeletionService: AppDataDeletionService
 
     @State private var isCreatingFolder = false
+    @State private var isShowingSettings = false
     @State private var reclassificationTarget: ReclassificationTarget?
     // 화면설계서 §7.1·§7.2 HOME-01 상단 검색. 홈 검색창은 마지막 입력을 유지하는 초안이라
     // @State로 충분하다 — NavigationStack에서 자식을 pop해 돌아와도 이 뷰 자체는 다시 안 만들어져
@@ -33,7 +36,8 @@ struct HomeView: View {
         viewModel: HomeViewModel, captureStore: any CaptureStoring, folderStore: any FolderStoring,
         thumbnailLoader: any ThumbnailLoading, analysisQueueService: AnalysisQueueService,
         searchService: SearchService, reclassificationStore: any ReclassificationStoring,
-        reclassificationService: ReclassificationService
+        reclassificationService: ReclassificationService, usageService: UsageService,
+        appDataDeletionService: AppDataDeletionService
     ) {
         _viewModel = State(initialValue: viewModel)
         self.captureStore = captureStore
@@ -43,6 +47,8 @@ struct HomeView: View {
         self.searchService = searchService
         self.reclassificationStore = reclassificationStore
         self.reclassificationService = reclassificationService
+        self.usageService = usageService
+        self.appDataDeletionService = appDataDeletionService
     }
 
     var body: some View {
@@ -54,6 +60,27 @@ struct HomeView: View {
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("설정")
+                }
+            }
+            .sheet(isPresented: $isShowingSettings) {
+                SettingsView(viewModel: SettingsViewModel(
+                    usageService: usageService, appDataDeletionService: appDataDeletionService))
+            }
+            .onChange(of: isShowingSettings) { wasShowing, isShowing in
+                // 앱 데이터 삭제가 여기서 일어날 수 있다 — 닫히면(특히 삭제 후) 폴더 카드
+                // 개수를 새로 고친다.
+                if wasShowing, !isShowing {
+                    Task { await viewModel.refresh() }
+                }
             }
             .task { await viewModel.refresh() }
             .onChange(of: scenePhase) { _, phase in

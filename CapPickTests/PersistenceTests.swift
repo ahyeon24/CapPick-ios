@@ -636,4 +636,42 @@ final class PersistenceTests: XCTestCase {
             // 같은 멱등 키의 두 번째 작업은 저장되지 않는다.
         }
     }
+
+    // MARK: - 앱 데이터 삭제 (기능명세서 §3.8)
+
+    func testEraseAllLocalDataEmptiesEveryTable() async throws {
+        try await captures.save(makeCapture("c1"))
+        try await saveAnalysis(for: "c1", ocrText: "ocr", searchText: "search")
+        let folder = makeFolder("f1")
+        try await folders.save(folder)
+        try await database.dbWriter.write { db in
+            try FolderCapture(
+                folderID: "f1", captureID: "c1", state: .present, source: .manual,
+                evidence: nil, criteriaVersion: 1, revision: 1
+            ).insert(db)
+            try LocalTask(
+                id: "t1", captureID: "c1", folderID: nil, kind: .contentAnalysis, inputRevision: 1,
+                criteriaVersion: nil, serverJobID: nil, idempotencyKey: "key-1",
+                state: .pending, attempts: 0, errorCode: nil, nextRetryAt: nil
+            ).insert(db)
+            try AppStateEntry(key: "onboardingCompleted", value: "true").insert(db)
+        }
+        let run = try await reclassifications.createRun(
+            folderID: "f1", criteriaVersion: 1, membershipRevision: 0, mode: .reclassify)
+        try await reclassifications.saveItems([
+            ReclassificationItem(runID: run.id, captureID: "c1", action: .add, evidence: nil, expectedMembershipRevision: nil, state: ReclassificationItemState.pending),
+        ])
+
+        try await database.eraseAllLocalData()
+
+        try await database.dbWriter.read { db in
+            for table in [
+                "capture", "captureAnalysis", "searchDocument", "folder", "folderCapture",
+                "localTask", "reclassificationRun", "reclassificationItem", "appState",
+            ] {
+                let count = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(table)")
+                XCTAssertEqual(count, 0, "\(table) should be empty after eraseAllLocalData")
+            }
+        }
+    }
 }

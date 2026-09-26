@@ -693,6 +693,43 @@ analyze()` 참고). substring은 세 필드를 합친 `indexedText` 전체를 �
 의도적으로 보류함). **이 서비스도 `SearchService`에는
 아직 연결 안 했다** — 지금까지처럼 평가용으로 병행 존재하는 상태다.
 
+## 설정 화면 — 사용량 표시 + 앱 데이터 삭제 (SETTINGS-01 일부, 2026-09-26)
+
+화면설계서 §12 SETTINGS-01 중 **사용량 표시 + 앱 데이터 삭제 두 가지만** 이번에 붙였다(사용자
+결정) — 사진 접근 상태, 데이터 처리 안내 정적 문구, 결제·구매 복원은 후속 과제로 남겼다.
+서버 `usage`·`deletion` 도메인(`CapPick-server` 커밋 `d7883b0`)이 먼저 있었기 때문에 가능했다.
+
+- **진입점**: `HomeView` 우측 상단 gear 툴바 버튼 → `.sheet`로 `SettingsView` 표시.
+- **네트워킹**: `Networking/UsageAPIClient`·`URLSessionUsageAPIClient`(`GET /v1/usage`),
+  `Networking/DeletionAPIClient`·`URLSessionDeletionAPIClient`(`POST`/`GET /v1/data-deletions`) —
+  기존 `JobAPIClient`/`URLSessionJobAPIClient` 패턴 그대로(`CapPickHTTP.send`·`CapPickJSON`
+  공유).
+- **`Services/UsageService`**(actor) — 서버 응답을 그대로 전달만 한다. `limitUnits`/`resetsAt`이
+  항상 null인 건 서버가 한도 정책 미정을 그렇게 표현하는 것이라(API 명세 §7), `SettingsView`도
+  그 값이 있을 때만 해당 줄을 보여준다(화면설계서 §12 "정해지지 않은 금액·갱신일은 표시하지
+  않는다"와 일치).
+- **`Services/AppDataDeletionService`**(actor) — **서버 삭제 요청이 실패해도 로컬 삭제는 항상
+  진행한다**(사용자 결정, 시스템 설계 §2 "로컬 DB가 기준" 원칙과 일치). 서버 호출은
+  best-effort로 감싸 실패를 삼키고 로그만 남긴다. 서버 `deletion_id`의 완료 여부를 폴링하지
+  않는다 — 로컬 삭제가 끝나는 시점만 이 화면에 중요하다.
+- **`AppDatabase.eraseAllLocalData()`**(신규) — 로컬 9개 테이블(capture~appState)을 한
+  트랜잭션으로 전부 비운다. **`appState`(온보딩 완료 여부 포함)도 같이 지운다**(사용자 결정) —
+  기능명세서 §3.8 "이후 가져오기는 새 시작"과 일치시켜서, 삭제 후엔 진짜 첫 설치처럼 동작한다.
+  사진 원본(PHAsset)은 GRDB 밖이라 안 건드린다.
+
+**알려진 한계(이번엔 안 고침)**: 삭제 중 `AnalysisQueueService`가 처리하던 캡처가 있으면, 로컬
+삭제 후 그 백그라운드 작업이 끝나면서 이미 없는 캡처 행에 결과를 쓰려는 GRDB `save()`가
+upsert로 새 행을 만들어버릴 수 있다 — 서버 `JobStateTransitions`의 `findById().ifPresent()`
+no-op과 다르게 동작한다. 완전한 취소 메커니즘은 별도 작업이라 이번엔 안 했다(드물게 겹치는
+타이밍 문제로 남겨둠).
+
+**테스트**: `AppDataDeletionServiceTests`(3, 로컬 삭제 확인·서버 실패해도 로컬은 진행되는지
+핵심 케이스), `SettingsViewModelTests`(3, 사용량 로드 성공/실패·삭제 완료 표시),
+`PersistenceTests.testEraseAllLocalDataEmptiesEveryTable`(9개 테이블 전부 실제로 비는지
+GRDB로 직접 확인). 전체 168개 테스트 통과. 시뮬레이터에 설치·실행해 크래시 없이 뜨는 것까지
+확인했다 — 이 세션 환경에서는 시뮬레이터 UI 자동 탭 조작이 막혀 있어 설정 화면을 실제로 열어
+사용량 숫자·삭제 확인 알럿을 직접 눈으로 보는 것까지는 못 했다(다음에 사람이 직접 확인 필요).
+
 ## 현재 설정값 (모두 잠정치, 필요 시 `project.yml`에서 수정)
 
 - Bundle ID: `com.cappick.ios` — 실제 배포용 Apple Developer 팀 도메인이 정해지면 교체

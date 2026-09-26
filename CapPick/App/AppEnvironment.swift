@@ -13,6 +13,8 @@ struct AppEnvironment: Sendable {
     let searchService: SearchService
     let reclassificationStore: any ReclassificationStoring
     let reclassificationService: ReclassificationService
+    let usageService: UsageService
+    let appDataDeletionService: AppDataDeletionService
 
     // 로컬 개발 전용 기본값 — 시뮬레이터에서 Mac의 localhost를 그대로 가리킨다. 배포 주소는
     // 아직 없다(API 명세 §1: "배포 주소 없음"). 실기기로 테스트하려면 Mac의 LAN IP로 바꿔야 한다.
@@ -65,6 +67,15 @@ struct AppEnvironment: Sendable {
             reclassificationStore: reclassificationStore,
             classificationService: classificationService
         )
+        let usageService = UsageService(
+            usageAPIClient: URLSessionUsageAPIClient(baseURL: developmentServerURL),
+            installationRegistrar: installationRegistrar
+        )
+        let appDataDeletionService = AppDataDeletionService(
+            deletionAPIClient: URLSessionDeletionAPIClient(baseURL: developmentServerURL),
+            installationRegistrar: installationRegistrar,
+            database: database
+        )
 
         return AppEnvironment(
             library: library,
@@ -77,7 +88,9 @@ struct AppEnvironment: Sendable {
             analysisQueueService: analysisQueueService,
             searchService: searchService,
             reclassificationStore: reclassificationStore,
-            reclassificationService: reclassificationService
+            reclassificationService: reclassificationService,
+            usageService: usageService,
+            appDataDeletionService: appDataDeletionService
         )
     }
 }
