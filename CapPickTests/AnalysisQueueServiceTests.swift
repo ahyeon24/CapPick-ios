@@ -26,7 +26,8 @@ final class AnalysisQueueServiceTests: XCTestCase {
         )
         let contentAnalysisService = ContentAnalysisService(
             jobAPIClient: jobAPIClient, installationRegistrar: registrar,
-            captureStore: captureStore, imageProvider: FakeCaptureImageProviding()
+            captureStore: captureStore, imageProvider: FakeCaptureImageProviding(),
+            textRecognizer: FakeTextRecognizer()
         )
         // 이 테스트 파일의 폴더는 기본적으로 비어있다 — classify()가 비교할 폴더가 없어 곧바로
         // 끝나므로(ClassificationServiceTests가 그 동작 자체는 이미 검증함), 여기서는 별도 스텁

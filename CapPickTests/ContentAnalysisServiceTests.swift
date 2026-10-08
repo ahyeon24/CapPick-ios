@@ -5,6 +5,7 @@ final class ContentAnalysisServiceTests: XCTestCase {
     private var captureStore: GRDBCaptureStore!
     private var jobAPIClient: FakeJobAPIClient!
     private var imageProvider: FakeCaptureImageProviding!
+    private var textRecognizer: FakeTextRecognizer!
     private var registrar: InstallationRegistrar!
     private var service: ContentAnalysisService!
 
@@ -20,6 +21,7 @@ final class ContentAnalysisServiceTests: XCTestCase {
 
         jobAPIClient = FakeJobAPIClient()
         imageProvider = FakeCaptureImageProviding()
+        textRecognizer = FakeTextRecognizer()
 
         let credentialStore = InMemoryCredentialStore()
         try credentialStore.save("existing-credential") // ensureRegistered()가 API를 안 타게
@@ -31,7 +33,7 @@ final class ContentAnalysisServiceTests: XCTestCase {
 
         service = ContentAnalysisService(
             jobAPIClient: jobAPIClient, installationRegistrar: registrar,
-            captureStore: captureStore, imageProvider: imageProvider
+            captureStore: captureStore, imageProvider: imageProvider, textRecognizer: textRecognizer
         )
     }
 
@@ -45,6 +47,22 @@ final class ContentAnalysisServiceTests: XCTestCase {
 
         let saved = try await captureStore.fetchAll().first { $0.id == "capture-1" }
         XCTAssertEqual(saved?.searchState, .ready)
+    }
+
+    func testAnalyzeSendsOnDeviceOCRTextAsHint() async throws {
+        textRecognizer.textToReturn = "기기에서 읽은 글자"
+
+        try await service.analyze(capture)
+
+        XCTAssertEqual(jobAPIClient.submittedOCRTextHints, ["기기에서 읽은 글자"])
+    }
+
+    func testAnalyzeStillSubmitsWithoutHintWhenOnDeviceOCRFindsNothing() async throws {
+        textRecognizer.textToReturn = nil
+
+        try await service.analyze(capture)
+
+        XCTAssertEqual(jobAPIClient.submittedOCRTextHints, [nil])
     }
 
     func testAnalyzeThrowsWhenImageUnavailable() async throws {

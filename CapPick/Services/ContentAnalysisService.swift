@@ -14,6 +14,7 @@ actor ContentAnalysisService {
     private let installationRegistrar: InstallationRegistrar
     private let captureStore: any CaptureStoring
     private let imageProvider: any CaptureImageProviding
+    private let textRecognizer: any TextRecognizing
 
     // 잠정치 — poll_after_seconds 사이 재시도 횟수 상한. 서버가 응답 없이 영원히 queued를
     // 돌려주는 경우에도 무한 대기하지 않는다.
@@ -23,18 +24,24 @@ actor ContentAnalysisService {
         jobAPIClient: any JobAPIClient,
         installationRegistrar: InstallationRegistrar,
         captureStore: any CaptureStoring,
-        imageProvider: any CaptureImageProviding
+        imageProvider: any CaptureImageProviding,
+        textRecognizer: any TextRecognizing
     ) {
         self.jobAPIClient = jobAPIClient
         self.installationRegistrar = installationRegistrar
         self.captureStore = captureStore
         self.imageProvider = imageProvider
+        self.textRecognizer = textRecognizer
     }
 
     func analyze(_ capture: Capture) async throws {
         guard let imageData = await imageProvider.imageData(for: capture.photoAssetID) else {
             throw ContentAnalysisError.imageUnavailable
         }
+
+        // OCR은 기기에서 한다(2026-10-08) — 서버는 이 텍스트를 받으면 AI 모델에게 OCR을 시키지 않고
+        // 그대로 결과의 ocr_text로 돌려준다(출력 토큰 절감). nil이면 서버가 예전처럼 모델 OCR로 대신한다.
+        let ocrText = await textRecognizer.recognizeText(for: capture.photoAssetID)
 
         let credential = try await installationRegistrar.ensureRegistered()
         // capture·content_revision·analysisAttempt로 키를 만든다. attempt를 포함하지 않으면
@@ -48,7 +55,7 @@ actor ContentAnalysisService {
         let submitted = try await jobAPIClient.submitContentAnalysis(
             clientReference: capture.id,
             contentRevision: capture.contentRevision,
-            ocrTextHint: nil,
+            ocrTextHint: ocrText,
             imageData: imageData,
             credential: credential,
             idempotencyKey: idempotencyKey

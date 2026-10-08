@@ -41,7 +41,8 @@ struct AppEnvironment: Sendable {
             jobAPIClient: URLSessionJobAPIClient(baseURL: developmentServerURL),
             installationRegistrar: installationRegistrar,
             captureStore: captureStore,
-            imageProvider: PhotosImageDataProvider()
+            imageProvider: PhotosImageDataProvider(),
+            textRecognizer: PhotosVisionTextRecognizer()
         )
         let classificationService = ClassificationService(
             classificationAPIClient: URLSessionClassificationAPIClient(baseURL: developmentServerURL),

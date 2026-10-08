@@ -20,6 +20,16 @@ final class SearchRankingTests: XCTestCase {
         XCTAssertEqual(ranked.map(\.id), ["c1"])
     }
 
+    func testKeywordSplitAcrossLineBreakStillMatches() {
+        // 기기 OCR이 줄바꿈된 단어를 줄 단위로 끊어서 돌려주는 경우.
+        let candidate = SearchCandidate(
+            capture: makeCapture("c1"), ocrText: "해당 인터페이스 설정 모드로 진\n입", searchText: nil, embedding: [])
+
+        let ranked = SearchRanking.rank([candidate], lexicalTerms: ["진입"], queryEmbedding: [])
+
+        XCTAssertEqual(ranked.map(\.id), ["c1"])
+    }
+
     func testVectorOnlyMatchIsIncludedWhenNoKeywordOverlap() {
         let candidate = SearchCandidate(
             capture: makeCapture("c1"), ocrText: "관련 없는 글자", searchText: nil, embedding: [1, 0, 0])

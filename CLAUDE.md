@@ -32,6 +32,22 @@ ON-03에서 동의한 뒤 pending 캡처를 **최근 것부터 순서대로 자�
 아니라 **failed 캡처를 사용자가 직접 재시도**하는 용도(`arrow.clockwise` 아이콘)로 좁혀졌고
 `BrowseViewModel`도 같은 방식으로 큐 진행을 폴링해 배지를 갱신한다.
 
+**OCR은 기기에서 한다 (2026-10-08, 사용자 결정 — AI 출력 토큰 절감).** `Services/TextRecognizing`
+(프로토콜)·`PhotosVisionTextRecognizer`(Apple Vision `VNRecognizeTextRequest`, accurate, ko-KR·
+en-US)가 **원본 해상도**로 글자를 읽고(업로드용 1600px JPEG이 아니라 — 작은 글씨 때문),
+`ContentAnalysisService.analyze`가 그 결과를 `ocrTextHint`로 서버에 보낸다. 서버는 힌트가 있으면
+모델에게 OCR을 안 시키고 그대로 `ocr_text`로 돌려준다(`CapPick-server/CLAUDE.md` 참고). 인식
+결과가 없으면 nil을 보내고 서버가 예전처럼 모델 OCR로 대신한다. 맥에서 같은 Vision으로 테스트
+18장을 돌려본 결과: 장당 0.04~2.5초, 대부분 flash-lite와 글자 수가 같거나 더 많았다. **알려진
+약점**: (1) 아주 작은 글씨는 오독한다("Thread Concept: Key Idea"→"Throad Concept: Key Idoa"),
+(2) 화면에서 줄바꿈된 단어가 줄 단위로 끊긴다("진\n입") — `SearchRanking.matchesKeyword`가
+줄바꿈을 지운 버전에서도 한 번 더 찾게 해서 고쳤다(온디바이스 검색 전환용 평가 코드 쪽은 아직
+같은 처리가 없다), (3) 한자는 ko-KR·en-US만으로는 못 읽는다(사주 화면의 천간·지지 한자가
+"계끗"·"신푸"처럼 나옴). **시뮬레이터 E2E 확인(2026-10-08)**: `simctl addmedia`로 새 스크린샷
+3장을 넣고 앱을 띄우니 자동 큐가 기기 OCR→서버(flash-lite)→분류까지 약 25초에 끝냈고, 로컬
+DB의 `ocrText`가 Vision 결과(줄 단위, 353·252·263자)로 저장된 것까지 확인했다. 실기기에서는
+아직 안 돌려봤다. 테스트 총 171개 통과.
+
 **폴더 기능이 붙었다 (2026-09-23)** — `Features/Folder/`에 FOLDER-01(`FolderListView`·`FolderListViewModel`,
 전체·미분류 시스템 행 + 사용자 폴더 목록·삭제·수정 진입)과 FOLDER-02(`FolderEditView`·`FolderEditViewModel`,
 생성·이름/기준 수정 시트)가 있고, HOME-01은 이제 2열 폴더 카드(전체/미분류/사용자 폴더, 각각

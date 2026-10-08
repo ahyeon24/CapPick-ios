@@ -40,7 +40,10 @@ enum SearchRanking {
             .joined(separator: " ")
             .lowercased()
         guard !haystack.isEmpty else { return false }
-        return terms.contains { haystack.contains($0) }
+        // 기기 OCR은 화면에서 줄바꿈된 단어를 줄 단위로 끊어서 돌려준다("진\n입") — 줄바꿈을 지운
+        // 버전에서도 한 번 더 찾아서 줄 경계에 걸친 단어를 잡는다(2026-10-08).
+        let unwrapped = haystack.replacingOccurrences(of: "\n", with: "")
+        return terms.contains { haystack.contains($0) || unwrapped.contains($0) }
     }
 
     private static func cosineSimilarity(_ a: [Double], _ b: [Double]) -> Double {

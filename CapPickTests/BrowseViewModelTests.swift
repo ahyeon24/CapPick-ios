@@ -18,7 +18,8 @@ final class BrowseViewModelTests: XCTestCase {
         let registrar = try makeRegistrar()
         let contentAnalysisService = ContentAnalysisService(
             jobAPIClient: FakeJobAPIClient(), installationRegistrar: registrar,
-            captureStore: captureStore, imageProvider: FakeCaptureImageProviding()
+            captureStore: captureStore, imageProvider: FakeCaptureImageProviding(),
+            textRecognizer: FakeTextRecognizer()
         )
         let classificationService = ClassificationService(
             classificationAPIClient: FakeClassificationAPIClient(), installationRegistrar: registrar,

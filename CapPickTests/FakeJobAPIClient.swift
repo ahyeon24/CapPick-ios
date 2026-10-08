@@ -20,6 +20,7 @@ final class FakeJobAPIClient: JobAPIClient, @unchecked Sendable {
     var statusResultsByJobId: [String: [Result<JobStatusResult, Error>]] = [:]
 
     private(set) var submitCalls: [(clientReference: String, contentRevision: Int, idempotencyKey: String)] = []
+    private(set) var submittedOCRTextHints: [String?] = []
     private(set) var statusCallCount = 0
     private var statusCallCountByJobId: [String: Int] = [:]
 
@@ -28,6 +29,7 @@ final class FakeJobAPIClient: JobAPIClient, @unchecked Sendable {
         imageData: Data, credential: String, idempotencyKey: String
     ) async throws -> JobSubmitted {
         submitCalls.append((clientReference, contentRevision, idempotencyKey))
+        submittedOCRTextHints.append(ocrTextHint)
         if let perReference = submitResultsByReference[clientReference] {
             return try perReference.get()
         }
@@ -43,6 +45,14 @@ final class FakeJobAPIClient: JobAPIClient, @unchecked Sendable {
         defer { statusCallCount += 1 }
         let index = min(statusCallCount, statusResults.count - 1)
         return try statusResults[index].get()
+    }
+}
+
+final class FakeTextRecognizer: TextRecognizing, @unchecked Sendable {
+    var textToReturn: String? = "fake-ocr"
+
+    func recognizeText(for photoAssetID: String) async -> String? {
+        textToReturn
     }
 }
 
