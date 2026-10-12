@@ -199,6 +199,21 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(candidates.first?.embedding, [1, 0])
     }
 
+    func testFetchSearchCandidatesIncludesObservedEvidence() async throws {
+        try await captures.save(makeCapture("c1", searchState: .ready))
+        try await captures.saveAnalysis(
+            CaptureAnalysis(
+                captureID: "c1", contentRevision: 1, analysisRevision: 1,
+                ocrText: "글자", observedEvidence: ["수달 이미지가 있다.", "책 표지다."], modelVersion: "m1"),
+            searchDocument: SearchDocument(
+                captureID: "c1", sourceAnalysisRevision: 1, searchText: "s",
+                embedding: [], embeddingModelVersion: "v1", state: "ready"))
+
+        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil, folderID: nil)
+
+        XCTAssertEqual(candidates.first?.observedEvidence, ["수달 이미지가 있다.", "책 표지다."])
+    }
+
     func testFetchSearchCandidatesExcludesUnavailableAndExcluded() async throws {
         try await captures.save(makeCapture("visible", searchState: .ready))
         try await saveAnalysis(for: "visible")

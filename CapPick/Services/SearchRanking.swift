@@ -1,13 +1,24 @@
 import Foundation
 
-/// 검색 대상 캡처 한 장 — capture + captureAnalysis(ocrText) + searchDocument(searchText,
-/// embedding)를 조인한 결과. 아직 분석이 끝나지 않은 캡처(searchDocument 없음)는 후보에서 아예
+/// 검색 대상 캡처 한 장 — capture + captureAnalysis(ocrText, observedEvidence) +
+/// searchDocument(searchText, embedding)를 조인한 결과. 아직 분석이 끝나지 않은 캡처(searchDocument 없음)는 후보에서 아예
 /// 빠진다 — GRDBCaptureStore.fetchSearchCandidates()가 INNER JOIN으로 걸러낸다.
 struct SearchCandidate: Equatable {
     let capture: Capture
     let ocrText: String?
     let searchText: String?
+    /// AI가 화면에서 관찰한 내용. 글자 일치 검색에만 쓴다(2026-10-12) — 화면에 글자는 없지만
+    /// 그림으로 보이는 것("수달 이미지", "지도")을 찾을 수 있게 하려는 것. 의미 점수에는 안 들어간다.
+    let observedEvidence: [String]
     let embedding: [Double]
+
+    init(capture: Capture, ocrText: String?, searchText: String?, observedEvidence: [String] = [], embedding: [Double]) {
+        self.capture = capture
+        self.ocrText = ocrText
+        self.searchText = searchText
+        self.observedEvidence = observedEvidence
+        self.embedding = embedding
+    }
 }
 
 // 키워드 검색(SEARCH-02)과 의미 검색(SEARCH-01·03)을 Reciprocal Rank Fusion으로 결합해 정렬한다.
@@ -17,7 +28,7 @@ struct SearchCandidate: Equatable {
 // hybrid-RRF를 그대로 옮겼다(2026-10-08, 파라미터는 평가 때 값 그대로 — 실제 앨범 규모에서의
 // 튜닝은 아직 안 했다):
 // - 키워드 쪽: 검색어를 공백으로 나눈 토큰 중 몇 개가 추출 글자(ocrText)·검색용 표현(searchText)에
-//   들어 있는지로 순위를 매기고, 기여도에 matchRatio(일치 토큰 수 / 전체 토큰 수)를 곱한다 —
+//   들어 있는지로 순위를 매기고(관찰 내용 observedEvidence도 같이 훑는다), 기여도에 matchRatio(일치 토큰 수 / 전체 토큰 수)를 곱한다 —
 //   토큰 하나만 우연히 겹친 캡처가 전부 겹친 캡처와 같은 보너스를 받지 않게 하려는 것.
 // - 의미 쪽: 코사인 유사도 순위. e5 계열은 유사도 절대값이 좁은 구간에 몰려 있어서 점수 자체가
 //   아니라 순위만 쓴다.
@@ -79,8 +90,7 @@ enum SearchRanking {
     }
 
     private static func matchedTermCount(_ candidate: SearchCandidate, terms: [String]) -> Int {
-        let haystack = [candidate.ocrText, candidate.searchText]
-            .compactMap { $0 }
+        let haystack = ([candidate.ocrText, candidate.searchText].compactMap { $0 } + candidate.observedEvidence)
             .joined(separator: " ")
             .lowercased()
         guard !haystack.isEmpty else { return 0 }

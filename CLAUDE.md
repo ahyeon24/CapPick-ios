@@ -456,6 +456,11 @@ xcodebuild test -project CapPick.xcodeproj -scheme CapPick \
   잡은 값이고 실제 앨범 규모(수백~수천 장)에서 검증한 적이 없다. 검색 품질 얘기가 나오거나
   실기기·큰 앨범으로 테스트할 기회가 생기면 이 값부터 다시 재 볼 것. 관련 캡처가 없는 검색어는
   이 기준으로도 몇 장은 나온다(알려진 한계).
+- **글자 일치 검색은 화면 글자·요약·관찰 내용 셋을 다 훑는다 (2026-10-12)**: 처음엔 `ocrText`와
+  `searchText`만 봤는데, 화면에 글자는 없고 그림으로만 보이는 것("수달 이미지")을 찾을 수 있게
+  `SearchCandidate.observedEvidence`를 추가해 같이 훑는다. 의미 점수는 여전히 `searchText`만
+  쓴다 — 화면 글자까지 붙여 임베딩하는 안은 캡처 9장으로 재 보고 기각했다("취업"·"책" 같은
+  분류어 검색이 2장→7~8장으로 흐려졌고, 고치려던 "빈티지→지도"·"구제→코너스토리"는 그대로).
 - **색인 벡터도 기기에서 만든다**: `ContentAnalysisService.save`가 서버 결과의 `search_text`를
   `"passage: "`로 임베딩해 `SearchDocument`에 저장한다. 서버 응답에는 이제 `embedding`·
   `embedding_model_version`이 없다(`ContentAnalysisResultDTO`에서 제거). 벡터 생성에 실패하면

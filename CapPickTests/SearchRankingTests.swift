@@ -130,6 +130,16 @@ final class SearchRankingTests: XCTestCase {
         XCTAssertTrue(ranked.contains { $0.id == "keyword" })
     }
 
+    func testObservedEvidenceIsSearchedForKeywords() {
+        let candidate = SearchCandidate(
+            capture: makeCapture("c1"), ocrText: "O'REILLY AI 시대의 엔지니어링 전략", searchText: "도서 광고",
+            observedEvidence: ["오터(수달) 이미지가 포함된 책 표지임."], embedding: [])
+
+        let ranked = SearchRanking.rank([candidate], lexicalTerms: ["수달"], queryEmbedding: [])
+
+        XCTAssertEqual(ranked.map(\.id), ["c1"])
+    }
+
     func testSearchTextIsAlsoSearchedNotJustOcrText() {
         let candidate = SearchCandidate(
             capture: makeCapture("c1"), ocrText: nil, searchText: "알고리즘 실습 자료", embedding: [])

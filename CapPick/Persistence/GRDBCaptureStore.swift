@@ -162,7 +162,7 @@ struct GRDBCaptureStore: CaptureStoring {
         try await database.dbWriter.read { db in
             var sql = """
                 SELECT capture.*, captureAnalysis.ocrText AS ocrText, searchDocument.searchText AS searchText,
-                       searchDocument.embedding AS embedding
+                       captureAnalysis.observedEvidence AS observedEvidence, searchDocument.embedding AS embedding
                 FROM capture
                 JOIN captureAnalysis ON captureAnalysis.captureID = capture.id
                 JOIN searchDocument ON searchDocument.captureID = capture.id
@@ -362,6 +362,7 @@ private struct SearchCandidateRow: Decodable, FetchableRecord {
     let classificationState: ClassificationState
     let ocrText: String?
     let searchText: String
+    let observedEvidence: [String]
     let embedding: [Double]
 
     var asSearchCandidate: SearchCandidate {
@@ -371,7 +372,7 @@ private struct SearchCandidateRow: Decodable, FetchableRecord {
                 availability: availability, excludedAt: excludedAt, favorite: favorite,
                 contentRevision: contentRevision, searchState: searchState, classificationState: classificationState
             ),
-            ocrText: ocrText, searchText: searchText, embedding: embedding
+            ocrText: ocrText, searchText: searchText, observedEvidence: observedEvidence, embedding: embedding
         )
     }
 }
