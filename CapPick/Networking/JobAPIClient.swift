@@ -43,8 +43,6 @@ struct ContentAnalysisResultDTO: Equatable, Sendable, Decodable {
     let ocrText: String
     let observedEvidence: [String]
     let searchText: String
-    let embedding: [Double]
-    let embeddingModelVersion: String
 }
 
 struct JobErrorDTO: Equatable, Sendable, Decodable {

@@ -28,7 +28,7 @@ final class CaptureDetailViewModelTests: XCTestCase {
         let contentAnalysisService = ContentAnalysisService(
             jobAPIClient: jobAPIClient, installationRegistrar: registrar,
             captureStore: captureStore, imageProvider: FakeCaptureImageProviding(),
-            textRecognizer: FakeTextRecognizer()
+            textRecognizer: FakeTextRecognizer(), embedder: FakeTextEmbedder()
         )
         let classificationService = ClassificationService(
             classificationAPIClient: FakeClassificationAPIClient(), installationRegistrar: registrar,
@@ -102,8 +102,7 @@ final class CaptureDetailViewModelTests: XCTestCase {
             .success(JobStatusResult(
                 jobId: "job-c1", status: .succeeded, clientReference: "c1",
                 result: ContentAnalysisResultDTO(
-                    analysisRevision: 1, ocrText: "글자", observedEvidence: [], searchText: "s",
-                    embedding: [], embeddingModelVersion: "v1"),
+                    analysisRevision: 1, ocrText: "글자", observedEvidence: [], searchText: "s"),
                 resultExpiresAt: nil, error: nil))
         ]
         let viewModel = try makeViewModel(capture: capture, analysisQueueService: try makeAnalysisQueueService(jobAPIClient: jobAPIClient))
@@ -128,8 +127,7 @@ final class CaptureDetailViewModelTests: XCTestCase {
             .success(JobStatusResult(
                 jobId: "job-c1", status: .succeeded, clientReference: "c1",
                 result: ContentAnalysisResultDTO(
-                    analysisRevision: 1, ocrText: "글자", observedEvidence: [], searchText: "s",
-                    embedding: [], embeddingModelVersion: "v1"),
+                    analysisRevision: 1, ocrText: "글자", observedEvidence: [], searchText: "s"),
                 resultExpiresAt: nil, error: nil))
         ]
         let viewModel = try makeViewModel(capture: capture, analysisQueueService: try makeAnalysisQueueService(jobAPIClient: jobAPIClient))

@@ -37,12 +37,15 @@ struct AppEnvironment: Sendable {
             credentialStore: KeychainCredentialStore()
         )
 
+        // 분석(색인)과 검색이 같은 인스턴스를 써야 113MB 모델을 한 번만 띄운다.
+        let embeddingService = OnnxEmbeddingService()
         let contentAnalysisService = ContentAnalysisService(
             jobAPIClient: URLSessionJobAPIClient(baseURL: developmentServerURL),
             installationRegistrar: installationRegistrar,
             captureStore: captureStore,
             imageProvider: PhotosImageDataProvider(),
-            textRecognizer: PhotosVisionTextRecognizer()
+            textRecognizer: PhotosVisionTextRecognizer(),
+            embedder: embeddingService
         )
         let classificationService = ClassificationService(
             classificationAPIClient: URLSessionClassificationAPIClient(baseURL: developmentServerURL),
@@ -56,11 +59,7 @@ struct AppEnvironment: Sendable {
             classificationService: classificationService,
             appStateStore: appStateStore
         )
-        let searchService = SearchService(
-            searchAPIClient: URLSessionSearchAPIClient(baseURL: developmentServerURL),
-            installationRegistrar: installationRegistrar,
-            captureStore: captureStore
-        )
+        let searchService = SearchService(embedder: embeddingService, captureStore: captureStore)
         let reclassificationStore = GRDBReclassificationStore(database: database)
         let reclassificationService = ReclassificationService(
             captureStore: captureStore,

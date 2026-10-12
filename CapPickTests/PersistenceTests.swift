@@ -229,21 +229,28 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(Set(candidates.map(\.capture.id)), ["atStart", "inRange"])
     }
 
-    func testCurrentEmbeddingModelVersionReturnsNilWhenNothingAnalyzed() async throws {
-        try await captures.save(makeCapture("pending", searchState: .pending))
+    func testFetchStaleSearchTextsReturnsOnlyDocumentsFromOtherModelVersions() async throws {
+        try await captures.save(makeCapture("old"))
+        try await saveAnalysis(for: "old", embeddingModelVersion: "gemini-embedding-001")
+        try await captures.save(makeCapture("current"))
+        try await saveAnalysis(for: "current", embeddingModelVersion: "e5-v1")
 
-        let version = try await captures.currentEmbeddingModelVersion()
+        let stale = try await captures.fetchStaleSearchTexts(currentModelVersion: "e5-v1")
 
-        XCTAssertNil(version)
+        XCTAssertEqual(stale.map(\.captureID), ["old"])
     }
 
-    func testCurrentEmbeddingModelVersionReturnsStoredVersion() async throws {
-        try await captures.save(makeCapture("c1"))
-        try await saveAnalysis(for: "c1", embeddingModelVersion: "gemini-embedding-001")
+    func testUpdateSearchEmbeddingReplacesVectorAndVersionOnly() async throws {
+        try await captures.save(makeCapture("c1", searchState: .ready))
+        try await saveAnalysis(for: "c1", ocrText: "면접 질문", embedding: [1, 0], embeddingModelVersion: "gemini-embedding-001")
 
-        let version = try await captures.currentEmbeddingModelVersion()
+        try await captures.updateSearchEmbedding(captureID: "c1", embedding: [0.5, 0.5, 0.5], modelVersion: "e5-v1")
 
-        XCTAssertEqual(version, "gemini-embedding-001")
+        let candidates = try await captures.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil, folderID: nil)
+        XCTAssertEqual(candidates.first?.embedding, [0.5, 0.5, 0.5])
+        XCTAssertEqual(candidates.first?.ocrText, "면접 질문")
+        let stale = try await captures.fetchStaleSearchTexts(currentModelVersion: "e5-v1")
+        XCTAssertTrue(stale.isEmpty)
     }
 
     func testFetchSearchCandidatesFiltersByFolderScope() async throws {

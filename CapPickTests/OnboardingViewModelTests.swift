@@ -151,7 +151,7 @@ final class OnboardingViewModelTests: XCTestCase {
         let contentAnalysisService = ContentAnalysisService(
             jobAPIClient: FakeJobAPIClient(), installationRegistrar: registrar,
             captureStore: captures, imageProvider: FakeCaptureImageProviding(),
-            textRecognizer: FakeTextRecognizer()
+            textRecognizer: FakeTextRecognizer(), embedder: FakeTextEmbedder()
         )
         let classificationService = ClassificationService(
             classificationAPIClient: FakeClassificationAPIClient(), installationRegistrar: registrar,

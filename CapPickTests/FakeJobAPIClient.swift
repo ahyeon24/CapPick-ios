@@ -10,7 +10,7 @@ final class FakeJobAPIClient: JobAPIClient, @unchecked Sendable {
             jobId: "job-1", status: .succeeded, clientReference: "c1",
             result: ContentAnalysisResultDTO(
                 analysisRevision: 1, ocrText: "ocr", observedEvidence: ["evidence"],
-                searchText: "search", embedding: [0.1], embeddingModelVersion: "embed-v1"),
+                searchText: "search"),
             resultExpiresAt: nil, error: nil))
     ]
     /// 캡처(clientReference)별로 다른 결과가 필요할 때(예: 큐 테스트에서 하나는 성공, 하나는
@@ -45,6 +45,22 @@ final class FakeJobAPIClient: JobAPIClient, @unchecked Sendable {
         defer { statusCallCount += 1 }
         let index = min(statusCallCount, statusResults.count - 1)
         return try statusResults[index].get()
+    }
+}
+
+/// 기본값은 빈 벡터 — 벡터 순위가 비활성이라 키워드 일치만으로 검색 결과가 정해진다.
+final class FakeTextEmbedder: TextEmbedding, @unchecked Sendable {
+    let modelVersion = "fake-embed-v1"
+    var vectorsByText: [String: [Double]] = [:]
+    var delayByText: [String: Duration] = [:]
+    private(set) var embedCalls: [(text: String, kind: OnnxEmbeddingInputKind)] = []
+
+    func embed(_ text: String, as kind: OnnxEmbeddingInputKind) async throws -> [Double] {
+        embedCalls.append((text, kind))
+        if let delay = delayByText[text] {
+            try await Task.sleep(for: delay)
+        }
+        return vectorsByText[text] ?? []
     }
 }
 

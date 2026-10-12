@@ -15,6 +15,7 @@ actor ContentAnalysisService {
     private let captureStore: any CaptureStoring
     private let imageProvider: any CaptureImageProviding
     private let textRecognizer: any TextRecognizing
+    private let embedder: any TextEmbedding
 
     // 잠정치 — poll_after_seconds 사이 재시도 횟수 상한. 서버가 응답 없이 영원히 queued를
     // 돌려주는 경우에도 무한 대기하지 않는다.
@@ -25,13 +26,15 @@ actor ContentAnalysisService {
         installationRegistrar: InstallationRegistrar,
         captureStore: any CaptureStoring,
         imageProvider: any CaptureImageProviding,
-        textRecognizer: any TextRecognizing
+        textRecognizer: any TextRecognizing,
+        embedder: any TextEmbedding
     ) {
         self.jobAPIClient = jobAPIClient
         self.installationRegistrar = installationRegistrar
         self.captureStore = captureStore
         self.imageProvider = imageProvider
         self.textRecognizer = textRecognizer
+        self.embedder = embedder
     }
 
     func analyze(_ capture: Capture) async throws {
@@ -87,20 +90,25 @@ actor ContentAnalysisService {
     }
 
     private func save(_ result: ContentAnalysisResultDTO, for capture: Capture) async throws {
+        // 검색 벡터는 기기에서 만든다(2026-10-08) — 서버는 더 이상 임베딩을 만들지도 돌려주지도 않는다.
+        // 실패하면(빈 searchText, 모델 로드 실패) 버전을 비워 둬서 SearchService가 다음 검색 때 다시 시도한다.
+        let embedding = (try? await embedder.embed(result.searchText, as: .passage)) ?? []
+        let embeddingModelVersion = embedding.isEmpty ? "" : embedder.modelVersion
         let analysis = CaptureAnalysis(
             captureID: capture.id,
             contentRevision: capture.contentRevision,
             analysisRevision: result.analysisRevision,
             ocrText: result.ocrText.isEmpty ? nil : result.ocrText,
             observedEvidence: result.observedEvidence,
-            modelVersion: result.embeddingModelVersion
+            // 서버가 분석 모델 버전을 돌려주지 않아서, 예전부터 여기엔 검색 벡터 모델 버전을 넣어 왔다.
+            modelVersion: embeddingModelVersion
         )
         let document = SearchDocument(
             captureID: capture.id,
             sourceAnalysisRevision: result.analysisRevision,
             searchText: result.searchText,
-            embedding: result.embedding,
-            embeddingModelVersion: result.embeddingModelVersion,
+            embedding: embedding,
+            embeddingModelVersion: embeddingModelVersion,
             state: "ready"
         )
         try await captureStore.saveAnalysis(analysis, searchDocument: document)

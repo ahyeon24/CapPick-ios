@@ -5,8 +5,7 @@ import Foundation
 /// 부분만 먼저 온디바이스로 옮긴 것이다(Gemini 프롬프트가 하던 지시를 그대로 규칙으로 옮김:
 /// "캡처가 저장된 시점"만 다루고 이미지 속에 적힌 다른 날짜와는 무관, 시작 포함·끝 미포함).
 ///
-/// **아직 SearchService에 연결하지 않는다** — 평가(evaluation) 목적으로 독립적으로만 쓴다.
-/// 기존 검색 기능(서버 `/v1/search/prepare` 경유)은 이 타입과 무관하게 그대로 동작한다.
+/// 2026-10-08부터 SearchService가 실제 검색에 쓴다(서버 `/v1/search/prepare`는 없어졌다).
 enum LocalDateInterpreter {
     struct Result: Equatable {
         /// 날짜 표현을 뺀 나머지 검색어. 공백은 정리된다.
@@ -55,7 +54,7 @@ enum LocalDateInterpreter {
     static func interpret(_ query: String, now: Date = Date(), calendar: Calendar = .current) -> Result {
         for phrase in Phrase.all {
             for variant in phrase.variants {
-                guard let range = query.range(of: variant) else { continue }
+                guard let range = standaloneRange(of: variant, in: query) else { continue }
                 let remainder = query.replacingCharacters(in: range, with: " ")
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                     .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
@@ -69,6 +68,35 @@ enum LocalDateInterpreter {
             }
         }
         return Result(searchText: query, capturedFrom: nil, capturedBefore: nil, dateInterpretation: nil)
+    }
+
+    // 날짜 표현 뒤에 붙어도 여전히 "그 시점에"라는 뜻인 조사. "오늘의"·"올해의"처럼 다른 조사가
+    // 붙으면 날짜 조건으로 보지 않는다.
+    private static let trailingParticles = ["에는", "에", "엔"]
+
+    /// 날짜 표현이 독립된 단어로 쓰였을 때만 찾는다(앞뒤가 문장 경계·공백이거나, 뒤에 "에" 계열
+    /// 조사만 붙은 경우). 단순 포함으로 찾으면 "오늘의 운세"가 '오늘 찍은 캡처'로 걸러져 결과가
+    /// 통째로 사라진다 — 2026-10-08 실제 모델 검색 테스트에서 발견. 돌려주는 범위에는 조사도 포함된다.
+    private static func standaloneRange(of variant: String, in query: String) -> Range<String.Index>? {
+        var searchStart = query.startIndex
+        while let range = query.range(of: variant, range: searchStart..<query.endIndex) {
+            let startsAtBoundary = range.lowerBound == query.startIndex
+                || query[query.index(before: range.lowerBound)].isWhitespace
+            if startsAtBoundary {
+                let rest = query[range.upperBound...]
+                if rest.isEmpty || rest.first!.isWhitespace {
+                    return range
+                }
+                for particle in trailingParticles where rest.hasPrefix(particle) {
+                    let afterParticle = rest.dropFirst(particle.count)
+                    if afterParticle.isEmpty || afterParticle.first!.isWhitespace {
+                        return range.lowerBound..<afterParticle.startIndex
+                    }
+                }
+            }
+            searchStart = range.upperBound
+        }
+        return nil
     }
 
     private static func dateInterval(for phrase: Phrase, now: Date, calendar: Calendar) -> DateInterval? {

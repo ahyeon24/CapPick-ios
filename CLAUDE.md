@@ -433,7 +433,49 @@ xcodebuild test -project CapPick.xcodeproj -scheme CapPick \
 
 **검증 이력 (2026-09-22, 검색 추가 후)**: 테스트 88개(신규 `SearchRankingTests` 5개, `URLSessionSearchAPIClientTests` 3개, `PersistenceTests`에 검색 후보 저장소 메서드 5개, `BrowseViewModelTests`에 검색 3개 — 스테일 가드 포함) 전부 통과. 시뮬레이터에서 검색창·"결과 없음" 상태까지 실제로 확인했다(사용자가 직접 검색어를 입력·실행). **다만 실제로 매칭되는 검색 결과는 아직 못 봤다** — 오늘 세션 내내 Gemini 무료 한도가 소진돼 있어서 분석이 성공적으로 끝난 캡처가 하나도 없었고(`searchDocument` 0행), `SearchService`가 이 경우 서버 호출도 없이 빈 결과를 돌려주는 것까지는 로컬 DB로 확인됐다. 분석이 실제로 한 장이라도 성공하면 그다음으로 키워드·의미 검색 결과 자체를 확인할 것.
 
-## 검색 온디바이스 전환 — Phase 1·2 진행 중 (2026-09-25)
+## 검색 온디바이스 전환 — 완료 (2026-10-08)
+
+**검색은 이제 서버·AI를 전혀 거치지 않는다.** 아래 "Phase 1·2" 절부터 "코퍼스 재작성" 절까지는
+전환 전 기록이라 "아직 연결 안 했다"는 표현이 남아 있다 — 지금 상태는 이 절이 기준이다.
+
+- **`SearchService`**(actor, `init(embedder:captureStore:)`): `LocalDateInterpreter`로 날짜 표현을
+  떼어내고 → 남은 검색어를 공백으로 나눠 키워드로 쓰고 → 같은 검색어를 `TextEmbedding`
+  (`OnnxEmbeddingService`, `"query: "` 접두어)으로 벡터화해 → `SearchRanking.rank`로 정렬한다.
+  날짜 표현만 있는 검색어("지난주")는 그 기간 캡처를 최근순 그대로 돌려준다. 검색어 벡터 생성이
+  실패해도 키워드 검색은 된다.
+- **`SearchRanking`**: 평가 하네스의 hybrid-RRF를 그대로 옮겼다(k=5, 키워드 쪽 기여도에
+  matchRatio 가중). 벡터 차원이 검색어 벡터와 다른 캡처는 벡터 순위에서 빠진다.
+- **결과에 넣는 기준 (2026-10-12, 사용자 결정)**: 처음엔 순위만 매기고 전부 보여줬더니 사용자가
+  시뮬레이터에서 "관련 없는 것도 계속 같이 뜬다"고 지적했다. 지금은 (1) 글자가 일치한 캡처는
+  항상, (2) 의미로만 걸린 캡처는 그 검색의 유사도 1위와 차이가
+  `SearchRanking.semanticGapThreshold`(0.03) 이내인 것만, (3) 그중 최대
+  `semanticOnlyLimit`(50)장까지 넣는다. 유사도 절대값 기준은 검토 후 안 쓰기로 했다 — 검색어마다
+  점수 높낮이가 달라서(시뮬레이터 캡처 8장 실측: 전체 0.72~0.86, 관련 캡처가 없는 "고양이
+  사진"의 1위 0.822 ≈ "면접"의 진짜 1위 0.824) 어디에 그어도 한쪽이 깨진다.
+  **⚠️ 0.03은 계속 조정해 나가야 하는 잠정치다(사용자가 꼭 기억해 두라고 당부함)** — 캡처 8장으로
+  잡은 값이고 실제 앨범 규모(수백~수천 장)에서 검증한 적이 없다. 검색 품질 얘기가 나오거나
+  실기기·큰 앨범으로 테스트할 기회가 생기면 이 값부터 다시 재 볼 것. 관련 캡처가 없는 검색어는
+  이 기준으로도 몇 장은 나온다(알려진 한계).
+- **색인 벡터도 기기에서 만든다**: `ContentAnalysisService.save`가 서버 결과의 `search_text`를
+  `"passage: "`로 임베딩해 `SearchDocument`에 저장한다. 서버 응답에는 이제 `embedding`·
+  `embedding_model_version`이 없다(`ContentAnalysisResultDTO`에서 제거). 벡터 생성에 실패하면
+  버전을 빈 문자열로 저장해 둔다.
+- **예전 벡터 다시 만들기**: `SearchService.search`가 매번 맨 앞에서
+  `CaptureStoring.fetchStaleSearchTexts(currentModelVersion:)`로 버전이 다른 문서(예전 Gemini
+  3072차원 벡터, 생성 실패분)를 찾아 기기에서 다시 만든다(`updateSearchEmbedding`). 다시 만들 게
+  없으면 조회 한 번뿐이다. 캡처가 아주 많은 기기에서 처음 한 번은 검색이 느릴 수 있다(지금은
+  실사용자가 없어 문제 아님).
+- **`LocalDateInterpreter` 수정**: 날짜 단어가 독립된 단어일 때만(또는 뒤에 "에"·"엔"·"에는"만
+  붙었을 때만) 날짜 조건으로 본다. 단순 포함으로 찾던 예전 구현은 "오늘의 운세"를 '오늘 찍은
+  캡처'로 걸러 결과를 통째로 없앴다 — 실제 모델로 돌리는 테스트에서 발견.
+- **지운 것**: `Networking/SearchAPIClient`·`URLSessionSearchAPIClient`와 그 테스트·가짜,
+  `CaptureStoring.currentEmbeddingModelVersion()`.
+- **검증**: 테스트 182개 통과. `SearchServiceTests`(7)에 **번들된 실제 모델로 끝까지 도는 테스트**
+  (예전 버전 벡터 3건 → 검색 시 384차원으로 재생성 → "오늘의 운세"로 사주 캡처가 1위)가 있다.
+  시뮬레이터 E2E: 새 스크린샷 1장이 분석되면서 `multilingual-e5-small-quantized-1`·384차원으로
+  저장됐다. **시뮬레이터 화면에서 직접 검색어를 입력해 보는 것, 실기기 속도 측정은 아직 안 했다.**
+
+## 검색 온디바이스 전환 — Phase 1·2 (2026-09-25, 전환 전 기록)
 
 검색을 서버(Gemini) 경유 없이 완전히 기기 안에서 처리하는 방향으로 전환하기로 했다(사용자
 결정). **아직 기존 검색 경로(`SearchService`/`SearchAPIClient`/서버 `/v1/search/prepare`)는

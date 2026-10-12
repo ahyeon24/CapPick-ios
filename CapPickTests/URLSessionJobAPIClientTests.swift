@@ -54,7 +54,7 @@ final class URLSessionJobAPIClientTests: XCTestCase {
             let json = """
             {"job_id":"job-1","status":"succeeded","client_reference":"capture-1",
              "result":{"analysis_revision":1,"ocr_text":"실습 1","observed_evidence":["행렬곱 문제"],
-                        "search_text":"알고리즘 실습","embedding":[0.1,0.2],"embedding_model_version":"embed-v1"},
+                        "search_text":"알고리즘 실습"},
              "result_expires_at":"2026-09-23T00:00:00Z","error":null}
             """
             return (200, Data(json.utf8))
@@ -65,7 +65,6 @@ final class URLSessionJobAPIClientTests: XCTestCase {
         XCTAssertEqual(result.status, .succeeded)
         XCTAssertEqual(result.result?.ocrText, "실습 1")
         XCTAssertEqual(result.result?.observedEvidence, ["행렬곱 문제"])
-        XCTAssertEqual(result.result?.embedding, [0.1, 0.2])
         XCTAssertNotNil(result.resultExpiresAt)
         XCTAssertNil(result.error)
     }

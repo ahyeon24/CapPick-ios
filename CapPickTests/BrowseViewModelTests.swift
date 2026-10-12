@@ -19,7 +19,7 @@ final class BrowseViewModelTests: XCTestCase {
         let contentAnalysisService = ContentAnalysisService(
             jobAPIClient: FakeJobAPIClient(), installationRegistrar: registrar,
             captureStore: captureStore, imageProvider: FakeCaptureImageProviding(),
-            textRecognizer: FakeTextRecognizer()
+            textRecognizer: FakeTextRecognizer(), embedder: FakeTextEmbedder()
         )
         let classificationService = ClassificationService(
             classificationAPIClient: FakeClassificationAPIClient(), installationRegistrar: registrar,
@@ -32,9 +32,9 @@ final class BrowseViewModelTests: XCTestCase {
     }
 
     private func makeSearchService(
-        captureStore: GRDBCaptureStore, searchAPIClient: FakeSearchAPIClient = FakeSearchAPIClient()
+        captureStore: GRDBCaptureStore, embedder: FakeTextEmbedder = FakeTextEmbedder()
     ) throws -> SearchService {
-        SearchService(searchAPIClient: searchAPIClient, installationRegistrar: try makeRegistrar(), captureStore: captureStore)
+        SearchService(embedder: embedder, captureStore: captureStore)
     }
 
     private func saveAnalysis(
@@ -127,13 +127,10 @@ final class BrowseViewModelTests: XCTestCase {
         try await store.save(unrelated)
         try await saveAnalysis(store: store, captureID: "unrelated", ocrText: "전혀 상관없는 내용")
 
-        let fakeClient = FakeSearchAPIClient()
-        fakeClient.resultsByQuery["면접"] = SearchPrepared(
-            normalizedQuery: "면접", lexicalTerms: ["면접"], embedding: [],
-            embeddingModelVersion: "v1", capturedFrom: nil, capturedBefore: nil, dateInterpretation: nil)
+        let fakeEmbedder = FakeTextEmbedder()
         let viewModel = BrowseViewModel(
             scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database), analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
-            searchService: try makeSearchService(captureStore: store, searchAPIClient: fakeClient))
+            searchService: try makeSearchService(captureStore: store, embedder: fakeEmbedder))
         await viewModel.load()
 
         viewModel.searchText = "면접"
@@ -206,19 +203,13 @@ final class BrowseViewModelTests: XCTestCase {
         try await store.save(forNewQuery)
         try await saveAnalysis(store: store, captureID: "forNew", ocrText: "new 캡처")
 
-        let fakeClient = FakeSearchAPIClient()
+        let fakeEmbedder = FakeTextEmbedder()
         // "old query"가 먼저 시작하지만 응답이 늦게 온다 — 그사이 시작한 "new query"가 먼저 끝난다.
-        fakeClient.delayByQuery["old query"] = .milliseconds(150)
-        fakeClient.resultsByQuery["old query"] = SearchPrepared(
-            normalizedQuery: "old query", lexicalTerms: ["old"], embedding: [],
-            embeddingModelVersion: "v1", capturedFrom: nil, capturedBefore: nil, dateInterpretation: nil)
-        fakeClient.resultsByQuery["new query"] = SearchPrepared(
-            normalizedQuery: "new query", lexicalTerms: ["new"], embedding: [],
-            embeddingModelVersion: "v1", capturedFrom: nil, capturedBefore: nil, dateInterpretation: nil)
+        fakeEmbedder.delayByText["old query"] = .milliseconds(150)
 
         let viewModel = BrowseViewModel(
             scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database), analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
-            searchService: try makeSearchService(captureStore: store, searchAPIClient: fakeClient))
+            searchService: try makeSearchService(captureStore: store, embedder: fakeEmbedder))
 
         viewModel.searchText = "old query"
         let staleTask = Task { await viewModel.search() }
@@ -363,14 +354,11 @@ final class BrowseViewModelTests: XCTestCase {
         try await folderStore.save(folder)
         try await folderStore.addManually(captureID: "inFolder", to: "f1")
 
-        let fakeClient = FakeSearchAPIClient()
-        fakeClient.resultsByQuery["면접"] = SearchPrepared(
-            normalizedQuery: "면접", lexicalTerms: ["면접"], embedding: [],
-            embeddingModelVersion: "v1", capturedFrom: nil, capturedBefore: nil, dateInterpretation: nil)
+        let fakeEmbedder = FakeTextEmbedder()
         let viewModel = BrowseViewModel(
             scope: .folder(folder), captureStore: store, folderStore: folderStore,
             analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
-            searchService: try makeSearchService(captureStore: store, searchAPIClient: fakeClient))
+            searchService: try makeSearchService(captureStore: store, embedder: fakeEmbedder))
 
         viewModel.searchText = "면접"
         await viewModel.search()

@@ -189,9 +189,23 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
-    func currentEmbeddingModelVersion() async throws -> String? {
+    func fetchStaleSearchTexts(currentModelVersion: String) async throws -> [StaleSearchText] {
         try await database.dbWriter.read { db in
-            try String.fetchOne(db, sql: "SELECT embeddingModelVersion FROM searchDocument LIMIT 1")
+            try Row.fetchAll(
+                db, sql: "SELECT captureID, searchText FROM searchDocument WHERE embeddingModelVersion <> ?",
+                arguments: [currentModelVersion]
+            ).map { StaleSearchText(captureID: $0["captureID"], searchText: $0["searchText"]) }
+        }
+    }
+
+    func updateSearchEmbedding(captureID: String, embedding: [Double], modelVersion: String) async throws {
+        try await database.dbWriter.write { db in
+            guard var document = try SearchDocument.fetchOne(db, key: captureID) else { return }
+            document = SearchDocument(
+                captureID: document.captureID, sourceAnalysisRevision: document.sourceAnalysisRevision,
+                searchText: document.searchText, embedding: embedding, embeddingModelVersion: modelVersion,
+                state: document.state)
+            try document.update(db)
         }
     }
 

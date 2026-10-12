@@ -46,10 +46,12 @@ protocol CaptureStoring: Sendable {
     /// 전부 nil이면 전체 기간·전체 범위). 최근 캡처부터.
     func fetchSearchCandidates(capturedFrom: Date?, capturedBefore: Date?, folderID: String?) async throws -> [SearchCandidate]
 
-    /// 로컬에 저장된 임베딩의 모델 버전. 지금은 서버 설정이 고정이라 분석 완료된 캡처는 전부 같은
-    /// 버전일 거라고 가정하고 아무거나 하나를 돌려준다 — 분석된 캡처가 하나도 없으면 nil(검색
-    /// 자체가 의미 없음).
-    func currentEmbeddingModelVersion() async throws -> String?
+    /// 검색 벡터가 지금 모델(currentModelVersion)과 다른 버전으로 만들어진 문서들 — 기기에서 벡터를
+    /// 다시 만들 대상이다(SearchService.reembedStaleDocuments).
+    func fetchStaleSearchTexts(currentModelVersion: String) async throws -> [StaleSearchText]
+
+    /// 검색 벡터와 그 모델 버전만 바꾼다. searchText·분석 결과는 건드리지 않는다.
+    func updateSearchEmbedding(captureID: String, embedding: [Double], modelVersion: String) async throws
 
     /// "미분류" 개수만 필요할 때(HOME-01 카드) 전체 목록을 안 가져오고 센다. fetchUnclassified()와
     /// 같은 규칙(ERD §3)을 COUNT(*)로 구현한다.
@@ -97,4 +99,9 @@ protocol CaptureStoring: Sendable {
     /// classificationState는 안 가린다 — 특정 폴더 하나를 기준으로 다시 판정하는 것이라 자동
     /// 분류 파이프라인의 전체 진행 상태와는 무관하다.
     func fetchAnalyzedCaptures() async throws -> [Capture]
+}
+
+struct StaleSearchText: Equatable, Sendable {
+    let captureID: String
+    let searchText: String
 }

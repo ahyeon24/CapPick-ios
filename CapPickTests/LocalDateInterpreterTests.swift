@@ -109,4 +109,25 @@ final class LocalDateInterpreterTests: XCTestCase {
         XCTAssertTrue((from..<before).contains(from))
         XCTAssertFalse((from..<before).contains(before))
     }
+
+    func testDatePhraseInsideAnotherExpressionIsNotADateCondition() {
+        let now = date("2026-09-25T10:00:00+09:00")
+
+        let fortune = LocalDateInterpreter.interpret("오늘의 운세", now: now, calendar: calendar)
+        let trend = LocalDateInterpreter.interpret("올해의 컬러 트렌드", now: now, calendar: calendar)
+
+        XCTAssertNil(fortune.capturedFrom)
+        XCTAssertEqual(fortune.searchText, "오늘의 운세")
+        XCTAssertNil(trend.capturedFrom)
+        XCTAssertEqual(trend.searchText, "올해의 컬러 트렌드")
+    }
+
+    func testDatePhraseWithTimeParticleIsStillADateConditionAndParticleIsRemoved() {
+        let now = date("2026-09-25T10:00:00+09:00")
+
+        let result = LocalDateInterpreter.interpret("지난달에 본 면접 자료", now: now, calendar: calendar)
+
+        XCTAssertNotNil(result.capturedFrom)
+        XCTAssertEqual(result.searchText, "본 면접 자료")
+    }
 }

@@ -6,6 +6,7 @@ final class ContentAnalysisServiceTests: XCTestCase {
     private var jobAPIClient: FakeJobAPIClient!
     private var imageProvider: FakeCaptureImageProviding!
     private var textRecognizer: FakeTextRecognizer!
+    private var embedder: FakeTextEmbedder!
     private var registrar: InstallationRegistrar!
     private var service: ContentAnalysisService!
 
@@ -22,6 +23,7 @@ final class ContentAnalysisServiceTests: XCTestCase {
         jobAPIClient = FakeJobAPIClient()
         imageProvider = FakeCaptureImageProviding()
         textRecognizer = FakeTextRecognizer()
+        embedder = FakeTextEmbedder()
 
         let credentialStore = InMemoryCredentialStore()
         try credentialStore.save("existing-credential") // ensureRegistered()가 API를 안 타게
@@ -33,7 +35,8 @@ final class ContentAnalysisServiceTests: XCTestCase {
 
         service = ContentAnalysisService(
             jobAPIClient: jobAPIClient, installationRegistrar: registrar,
-            captureStore: captureStore, imageProvider: imageProvider, textRecognizer: textRecognizer
+            captureStore: captureStore, imageProvider: imageProvider, textRecognizer: textRecognizer,
+            embedder: embedder
         )
     }
 
@@ -65,6 +68,27 @@ final class ContentAnalysisServiceTests: XCTestCase {
         XCTAssertEqual(jobAPIClient.submittedOCRTextHints, [nil])
     }
 
+    func testAnalyzeStoresOnDeviceEmbeddingOfSearchTextAsPassage() async throws {
+        embedder.vectorsByText["search"] = [0.6, 0.8]
+
+        try await service.analyze(capture)
+
+        XCTAssertEqual(embedder.embedCalls.map(\.text), ["search"])
+        XCTAssertEqual(embedder.embedCalls.first?.kind, .passage)
+        let candidates = try await captureStore.fetchSearchCandidates(capturedFrom: nil, capturedBefore: nil, folderID: nil)
+        XCTAssertEqual(candidates.first?.embedding, [0.6, 0.8])
+        let stale = try await captureStore.fetchStaleSearchTexts(currentModelVersion: embedder.modelVersion)
+        XCTAssertTrue(stale.isEmpty)
+    }
+
+    func testAnalyzeLeavesDocumentStaleWhenEmbeddingFails() async throws {
+        // 기본 FakeTextEmbedder는 빈 벡터를 돌려준다 — 벡터 생성 실패와 같은 취급.
+        try await service.analyze(capture)
+
+        let stale = try await captureStore.fetchStaleSearchTexts(currentModelVersion: embedder.modelVersion)
+        XCTAssertEqual(stale, [StaleSearchText(captureID: "capture-1", searchText: "search")])
+    }
+
     func testAnalyzeThrowsWhenImageUnavailable() async throws {
         imageProvider.dataToReturn = nil
 
@@ -83,8 +107,7 @@ final class ContentAnalysisServiceTests: XCTestCase {
             .success(JobStatusResult(
                 jobId: "job-1", status: .succeeded, clientReference: "c1",
                 result: ContentAnalysisResultDTO(
-                    analysisRevision: 3, ocrText: "", observedEvidence: [], searchText: "s",
-                    embedding: [], embeddingModelVersion: "v1"),
+                    analysisRevision: 3, ocrText: "", observedEvidence: [], searchText: "s"),
                 resultExpiresAt: nil, error: nil)),
         ]
 
