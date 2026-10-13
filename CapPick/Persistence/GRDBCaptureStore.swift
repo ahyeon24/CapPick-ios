@@ -152,6 +152,12 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
+    func markSearchPending(_ captureID: String) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET searchState = 'pending' WHERE id = ?", arguments: [captureID])
+        }
+    }
+
     func resetStuckProcessing() async throws {
         try await database.dbWriter.write { db in
             try db.execute(sql: "UPDATE capture SET searchState = 'pending' WHERE searchState = 'processing'")
@@ -293,6 +299,12 @@ struct GRDBCaptureStore: CaptureStoring {
     func markClassificationComplete(_ captureID: String) async throws {
         try await database.dbWriter.write { db in
             try db.execute(sql: "UPDATE capture SET classificationState = 'complete' WHERE id = ?", arguments: [captureID])
+        }
+    }
+
+    func markClassificationPending(_ captureID: String) async throws {
+        try await database.dbWriter.write { db in
+            try db.execute(sql: "UPDATE capture SET classificationState = 'pending' WHERE id = ?", arguments: [captureID])
         }
     }
 

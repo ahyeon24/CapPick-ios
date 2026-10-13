@@ -8,6 +8,8 @@ final class HomeViewModel {
     private(set) var progress: AnalysisProgress?
     private(set) var authorization: PhotoAuthorization
     private(set) var errorMessage: String?
+    /// 분석 큐가 한도 때문에 멈춰 있으면 그 안내 문구.
+    private(set) var analysisPauseMessage: String?
     private(set) var folders: [Folder] = []
     private(set) var unclassifiedCount = 0
     private var folderCounts: [String: Int] = [:]
@@ -68,6 +70,12 @@ final class HomeViewModel {
         while let latest = try? await captureStore.currentProgress(), latest.searchPending > 0 {
             try? await Task.sleep(for: .seconds(2))
             progress = try? await captureStore.currentProgress()
+            // 한도 때문에 멈췄으면 pending이 남아 있어도 더 줄어들지 않는다 — 여기서 관찰을 끝낸다.
+            if let reason = await analysisQueueService.pauseReason() {
+                analysisPauseMessage = reason.userMessage
+                return
+            }
         }
+        analysisPauseMessage = nil
     }
 }

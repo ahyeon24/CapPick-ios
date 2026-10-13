@@ -163,6 +163,11 @@ struct HomeView: View {
         Text("어떤 캡처를 찾고 있나요?").font(.title3)
         Text("\(progress.searchReady.formatted()) / \(progress.total.formatted())장 분석 완료")
             .foregroundStyle(.secondary)
+        if let message = viewModel.analysisPauseMessage {
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.orange)
+        }
         HStack {
             TextField("기억나는 말로 검색", text: $searchQuery)
                 .textFieldStyle(.roundedBorder)

@@ -37,6 +37,10 @@ protocol CaptureStoring: Sendable {
     /// 집히지 않는다(무한 재시도 금지). 사용자가 명시적으로 재시도할 때만 다시 처리된다.
     func markSearchFailed(_ captureID: String) async throws
 
+    /// 서버가 한도(설치별 한도·하루 예산) 때문에 접수를 거부했을 때 부른다 — 캡처 탓이 아니므로
+    /// failed로 남기지 않고 pending으로 되돌려, 한도가 풀린 뒤 큐가 다시 집어가게 한다.
+    func markSearchPending(_ captureID: String) async throws
+
     /// 앱이 분석 도중 종료된 뒤 재실행됐을 때, processing에 멈춰있던 캡처를 전부 pending으로
     /// 되돌려 큐가 다시 집어갈 수 있게 한다.
     func resetStuckProcessing() async throws
@@ -91,6 +95,9 @@ protocol CaptureStoring: Sendable {
     /// 판정이 전부 끝났을 때 부른다 — match가 하나도 없어도(또는 비교할 폴더가 아예 없어도)
     /// complete다. 실제 소속 반영은 FolderStoring.applyAutoMatch가 따로 한다.
     func markClassificationComplete(_ captureID: String) async throws
+
+    /// markSearchPending과 같은 이유 — 하루 예산 때문에 거부된 분류는 나중에 다시 집히게 둔다.
+    func markClassificationPending(_ captureID: String) async throws
 
     /// searchState의 failed와 같은 규칙 — 이후 nextPendingForClassification()에서 더 이상 안 집힌다.
     func markClassificationFailed(_ captureID: String) async throws

@@ -127,7 +127,7 @@ final class BrowseViewModel {
             try await analysisQueueService.retry(capture)
             await load()
         } catch {
-            errorMessage = "분석에 실패했어요: \(error)"
+            errorMessage = AnalysisPauseReason(serverError: error)?.userMessage ?? "분석에 실패했어요: \(error)"
         }
     }
 

@@ -48,6 +48,18 @@ en-US)가 **원본 해상도**로 글자를 읽고(업로드용 1600px JPEG이 �
 DB의 `ocrText`가 Vision 결과(줄 단위, 353·252·263자)로 저장된 것까지 확인했다. 실기기에서는
 아직 안 돌려봤다. 테스트 총 171개 통과.
 
+**분석 큐는 한도에 걸리면 멈춘다 (2026-10-13).** 서버가 429 `QUOTA_EXCEEDED`(설치별 한도) 또는
+`DAILY_BUDGET_EXHAUSTED`(전체 하루 예산)로 접수를 거부하면 `AnalysisQueueService`가 그 캡처를
+failed가 아니라 **pending으로 되돌리고**(`CaptureStoring.markSearchPending`/
+`markClassificationPending`) 큐 전체를 `pauseCooldown`(10분, 잠정치) 동안 멈춘다. 이 처리가 없던
+때는 한도 소진 뒤 남은 캡처가 전부 줄줄이 failed로 바뀌어 하나씩 수동 재시도해야 했다 — 캡처가
+10장뿐인 시뮬레이터에서는 안 드러나고 실기기(수천 장)에서 터질 문제였다. `pauseReason()`이 멈춘
+이유를 알려주고, `HomeViewModel`은 그걸 보면 진행률 관찰 루프를 끝내고 `analysisPauseMessage`를
+진행률 아래 주황색 글씨로 보여준다("분석할 수 있는 장수를 모두 사용했어요…" / "오늘 분석할 수
+있는 양을 모두 사용했어요…"). 멈춘 뒤 다시 시도하는 시점은 Home이 다시 보일 때(앱 실행·복귀)이고
+10분이 지나 있어야 한다 — 백그라운드에서 스스로 재개하지는 않는다. 시뮬레이터에서 한도를 낮춰
+실제로 멈추고 문구가 뜨는 것까지 확인했다. 테스트 189개 통과.
+
 **폴더 기능이 붙었다 (2026-09-23)** — `Features/Folder/`에 FOLDER-01(`FolderListView`·`FolderListViewModel`,
 전체·미분류 시스템 행 + 사용자 폴더 목록·삭제·수정 진입)과 FOLDER-02(`FolderEditView`·`FolderEditViewModel`,
 생성·이름/기준 수정 시트)가 있고, HOME-01은 이제 2열 폴더 카드(전체/미분류/사용자 폴더, 각각
@@ -351,7 +363,7 @@ final class HomeViewModel {
 
 ### 2. Networking — 서버 클라이언트를 프로토콜 뒤에 숨긴다
 
-`last-safe-server`가 `BusPositionClient` 인터페이스 뒤에 실제 공급자 구현체(`TagoBusPositionClient`)를 숨긴 것과 같은 이유: API 명세(`../docs/cappick-api-spec-v0.2.md`)가 "계약 초안"이라 바뀔 수 있고, 테스트에서는 실제 네트워크 없이 목(fake)으로 교체해야 한다. 실제로 구현된 첫 클라이언트가 `InstallationAPIClient`다.
+`last-safe-server`가 `BusPositionClient` 인터페이스 뒤에 실제 공급자 구현체(`TagoBusPositionClient`)를 숨긴 것과 같은 이유: API 명세(`../docs/cappick-api-spec-v0.3.md`)가 "계약 초안"이라 바뀔 수 있고, 테스트에서는 실제 네트워크 없이 목(fake)으로 교체해야 한다. 실제로 구현된 첫 클라이언트가 `InstallationAPIClient`다.
 
 ```swift
 // Networking/InstallationAPIClient.swift (실제 코드, 축약)

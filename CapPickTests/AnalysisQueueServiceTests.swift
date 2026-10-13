@@ -8,6 +8,8 @@ final class AnalysisQueueServiceTests: XCTestCase {
     private var classificationAPIClient: FakeClassificationAPIClient!
     private var appStateStore: GRDBAppStateStore!
     private var queue: AnalysisQueueService!
+    private var contentAnalysisService: ContentAnalysisService!
+    private var classificationService: ClassificationService!
 
     override func setUp() async throws {
         let database = try AppDatabase.makeInMemory()
@@ -37,9 +39,15 @@ final class AnalysisQueueServiceTests: XCTestCase {
             classificationAPIClient: classificationAPIClient, installationRegistrar: registrar,
             captureStore: captureStore, folderStore: folderStore
         )
-        queue = AnalysisQueueService(
+        self.contentAnalysisService = contentAnalysisService
+        self.classificationService = classificationService
+        queue = makeQueue()
+    }
+
+    private func makeQueue(now: @escaping @Sendable () -> Date = { Date() }) -> AnalysisQueueService {
+        AnalysisQueueService(
             captureStore: captureStore, contentAnalysisService: contentAnalysisService,
-            classificationService: classificationService, appStateStore: appStateStore
+            classificationService: classificationService, appStateStore: appStateStore, now: now
         )
     }
 
@@ -114,6 +122,58 @@ final class AnalysisQueueServiceTests: XCTestCase {
         let states = Dictionary(uniqueKeysWithValues: try await captureStore.fetchAll().map { ($0.id, $0.searchState) })
         XCTAssertEqual(states["bad"], .failed)
         XCTAssertEqual(states["good"], .ready)
+    }
+
+    // MARK: - 한도 거부 (설치별 한도·하루 예산)
+
+    private func quotaError(_ code: String) -> CapPickAPIError {
+        .server(status: 429, code: code, message: "한도", retryable: false)
+    }
+
+    func testQuotaRejectionStopsQueueAndLeavesRemainingCapturesPending() async throws {
+        try await captureStore.save(makeCapture("first", capturedAt: 3_000))
+        try await captureStore.save(makeCapture("second", capturedAt: 2_000))
+        try await captureStore.save(makeCapture("third", capturedAt: 1_000))
+        succeedingSubmitAndStatus(for: "first")
+        jobAPIClient.submitResultsByReference["second"] = .failure(quotaError("QUOTA_EXCEEDED"))
+        succeedingSubmitAndStatus(for: "third")
+        try await appStateStore.setValue("true", for: AppStateKey.analysisStartRequested)
+
+        await queue.resumeIfNeeded()
+
+        // 거부당한 캡처에서 멈춘다 — 그 뒤 캡처는 서버에 보내지도 않는다.
+        XCTAssertEqual(jobAPIClient.submitCalls.map(\.clientReference), ["first", "second"])
+        let states = Dictionary(uniqueKeysWithValues: try await captureStore.fetchAll().map { ($0.id, $0.searchState) })
+        XCTAssertEqual(states["first"], .ready)
+        XCTAssertEqual(states["second"], .pending, "한도 거부는 캡처 탓이 아니라서 failed로 남기면 안 된다")
+        XCTAssertEqual(states["third"], .pending)
+        let reason = await queue.pauseReason()
+        XCTAssertEqual(reason, .quotaExceeded)
+    }
+
+    func testPausedQueueDoesNotAskServerAgainUntilCooldownPasses() async throws {
+        let clock = TestClock()
+        let pausable = makeQueue(now: { clock.now })
+        try await captureStore.save(makeCapture("c1", capturedAt: 1_000))
+        jobAPIClient.submitResultsByReference["c1"] = .failure(quotaError("DAILY_BUDGET_EXHAUSTED"))
+        try await appStateStore.setValue("true", for: AppStateKey.analysisStartRequested)
+
+        await pausable.resumeIfNeeded()
+        await pausable.resumeIfNeeded()
+        XCTAssertEqual(jobAPIClient.submitCalls.count, 1, "멈춘 직후에는 다시 요청하지 않는다")
+        let reasonWhilePaused = await pausable.pauseReason()
+        XCTAssertEqual(reasonWhilePaused, .dailyBudgetExhausted)
+
+        // 간격이 지나고 한도가 풀렸다면 이어서 처리한다.
+        clock.now = clock.now.addingTimeInterval(AnalysisQueueService.pauseCooldown + 1)
+        succeedingSubmitAndStatus(for: "c1")
+        await pausable.resumeIfNeeded()
+
+        XCTAssertEqual(jobAPIClient.submitCalls.count, 2)
+        let state = try await captureStore.fetchAll().first?.searchState
+        XCTAssertEqual(state, .ready)
+        let reasonAfter = await pausable.pauseReason()
+        XCTAssertNil(reasonAfter)
     }
 
     func testResumeIfNeededResetsStuckProcessingBeforeRunning() async throws {
@@ -263,4 +323,9 @@ final class AnalysisQueueServiceTests: XCTestCase {
         let state = try await captureStore.fetchAll().first?.searchState
         XCTAssertEqual(state, .failed)
     }
+}
+
+/// 테스트에서 시간을 직접 움직이기 위한 시계.
+private final class TestClock: @unchecked Sendable {
+    var now = Date(timeIntervalSince1970: 1_000_000)
 }
