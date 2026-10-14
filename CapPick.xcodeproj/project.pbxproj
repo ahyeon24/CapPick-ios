@@ -68,6 +68,7 @@
 		696557395EA09524A655595B /* InstallationAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B0E934FC912AFE6B1C1D013 /* InstallationAPIClient.swift */; };
 		6CF274F6E4BAEB1AD42EB399 /* FolderListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E529E35BDFA7ECA4928A6C /* FolderListViewModel.swift */; };
 		6D1EB73A8A3D5E9F399C4FF2 /* LocalDateInterpreterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F458F4B2A87AB6028D910D31 /* LocalDateInterpreterTests.swift */; };
+		6F24967F2D78F281346C7651 /* MasonryLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1DF979D5EEE4304FEDB5D8C /* MasonryLayoutTests.swift */; };
 		701F470F3AF6A7F5E4F9C8AB /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E6AEA5E0E082BD1110A816E /* HomeView.swift */; };
 		73049B898C3EF6743F67A344 /* SearchRankingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40919C89BA99F1568558ED2 /* SearchRankingTests.swift */; };
 		75FF1D7E06CBE30C35AA620A /* GRDBFolderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02269DC5A390307C459A113B /* GRDBFolderStore.swift */; };
@@ -112,6 +113,7 @@
 		E56E99F894CD8FEA335F92D7 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = F1A2FBAEBB11FA98B8303893 /* onnxruntime */; };
 		EB959B94DC01A96F29805094 /* Capture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A0A6103BCE7E031786398AB /* Capture.swift */; };
 		EE9A4F67B80C010ED43F152A /* Fakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142339CDB5E00475DF049494 /* Fakes.swift */; };
+		EF7C5E0A3550F22AEE725514 /* MasonryLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 820A373D92C099DA6422FB90 /* MasonryLayout.swift */; };
 		F0D3267F92C3037F0B2EFD8B /* ReclassificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E80A1741A2900EE4516BC77 /* ReclassificationService.swift */; };
 		F2B18F28C0D5CF6D0C01F117 /* FolderEditViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A3371389A875CB4BDB4D9BC /* FolderEditViewModelTests.swift */; };
 		F33098B61A8492F18133ADE9 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5686D04A43310AF3E66A8565 /* HomeViewModel.swift */; };
@@ -190,6 +192,7 @@
 		7FC8A600714ACA660573512E /* GRDBReclassificationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GRDBReclassificationStore.swift; sourceTree = "<group>"; };
 		7FFCD697F9C6A2757F05B98E /* AnalysisQueueServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisQueueServiceTests.swift; sourceTree = "<group>"; };
 		8007F400BC8454DCC4577F1F /* Records.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Records.swift; sourceTree = "<group>"; };
+		820A373D92C099DA6422FB90 /* MasonryLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasonryLayout.swift; sourceTree = "<group>"; };
 		8216C2C0FD4EE8ED4BD08E68 /* CapPick.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CapPick.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		82317E1230588AA94122B151 /* ClassificationAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassificationAPIClient.swift; sourceTree = "<group>"; };
 		83BD72B95029EE25FBE2C7AB /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
@@ -225,6 +228,7 @@
 		BA28F169227E0B49A58DBDF8 /* CapPickApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapPickApp.swift; sourceTree = "<group>"; };
 		BABD400AD37C453B5BF1072B /* ThumbnailLoading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailLoading.swift; sourceTree = "<group>"; };
 		BB5A69863FB2FFCDACBEBFA0 /* BrowseViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowseViewModel.swift; sourceTree = "<group>"; };
+		C1DF979D5EEE4304FEDB5D8C /* MasonryLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasonryLayoutTests.swift; sourceTree = "<group>"; };
 		C4CA94C35345390F3490912D /* E5Small */ = {isa = PBXFileReference; lastKnownFileType = folder; name = E5Small; path = CapPick/Resources/E5Small; sourceTree = SOURCE_ROOT; };
 		C705C412601E41413BD3B54C /* URLSessionInstallationAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionInstallationAPIClient.swift; sourceTree = "<group>"; };
 		C7BADBB2ECF9EDDB0711C9B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -324,6 +328,7 @@
 				B369AC688C3261E69FAEDF1F /* InstallationRegistrarTests.swift */,
 				561867BC5A698D5D71D8B4BE /* KeychainCredentialStoreTests.swift */,
 				F458F4B2A87AB6028D910D31 /* LocalDateInterpreterTests.swift */,
+				C1DF979D5EEE4304FEDB5D8C /* MasonryLayoutTests.swift */,
 				A02AB02E191A15559E53B2C2 /* NetworkingFakes.swift */,
 				2C5900456C4813CB629F9158 /* OnboardingViewModelTests.swift */,
 				A5E57DF1909650F9957A89E3 /* OnnxEmbeddingServiceTests.swift */,
@@ -499,6 +504,7 @@
 				4E8E7C711BB82E2E27D40207 /* BrowseView.swift */,
 				BB5A69863FB2FFCDACBEBFA0 /* BrowseViewModel.swift */,
 				F0ABD11D2676D2500B0EE855 /* CaptureThumbnailView.swift */,
+				820A373D92C099DA6422FB90 /* MasonryLayout.swift */,
 			);
 			path = Browse;
 			sourceTree = "<group>";
@@ -655,6 +661,7 @@
 				304606563A1DBF151C1DDDD4 /* LiveTextImageView.swift in Sources */,
 				24B5FEEC770EC6213A9D5679 /* LocalDateInterpreter.swift in Sources */,
 				5EC4A1E0BA203CD269C8EA16 /* LocalTask.swift in Sources */,
+				EF7C5E0A3550F22AEE725514 /* MasonryLayout.swift in Sources */,
 				22F30D32A8A4F0ABF6DD757E /* OnboardingFlowView.swift in Sources */,
 				CF15372CFA57B8F274DA2E98 /* OnboardingViewModel.swift in Sources */,
 				0115367BE774885F12C10CB6 /* OnnxEmbeddingService.swift in Sources */,
@@ -711,6 +718,7 @@
 				14302623CB4A4FD4250E5F0E /* InstallationRegistrarTests.swift in Sources */,
 				BF590677CE1BDFBEE7325A1B /* KeychainCredentialStoreTests.swift in Sources */,
 				6D1EB73A8A3D5E9F399C4FF2 /* LocalDateInterpreterTests.swift in Sources */,
+				6F24967F2D78F281346C7651 /* MasonryLayoutTests.swift in Sources */,
 				263F288E63E2E6F8DAB9C915 /* NetworkingFakes.swift in Sources */,
 				B2A7ED148DB9236B07037E00 /* OnboardingViewModelTests.swift in Sources */,
 				82192CD74A9E5F9E52EC9E5D /* OnnxEmbeddingServiceTests.swift in Sources */,

@@ -12,6 +12,12 @@ actor SearchService {
         self.captureStore = captureStore
     }
 
+    /// 앱이 켜질 때 미리 부른다 — 검색 모델(약 113MB)을 첫 검색 때 불러오면 그 검색이 몇 초 멈춘
+    /// 것처럼 보인다. 검색어 하나를 실제로 벡터화해서 모델 로드와 첫 실행 준비를 함께 끝내 둔다.
+    func warmUp() async {
+        _ = try? await embedder.embed("준비", as: .query)
+    }
+
     /// 빈 검색어는 호출하지 않는다 — SEARCH-06: 빈 검색어는 로컬 전체 탐색(이미
     /// BrowseViewModel.load()가 그 역할을 한다). folderID가 있으면 그 폴더 범위로만 검색한다(SEARCH-04).
     func search(query: String, folderID: String?) async throws -> [Capture] {

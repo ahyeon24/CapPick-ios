@@ -1,10 +1,10 @@
 import SwiftUI
 
-// 한 칸. 지금은 정사각형 균일 그리드다 — 화면설계서 BROWSE-01은 "이미지 비율에 따라 높이를
-// 달리하는" 배치를 요구하지만(§7.3), 그 masonry 레이아웃은 다음 단계로 미루고 우선 실제
-// 썸네일이 뜨는 것부터 만들었다. 가로세로 비율 자체는 Capture.width/height에 이미 있다.
+// 한 칸. 높이는 캡처의 세로/가로 비율(heightRatio, MasonryLayout이 범위를 제한한 값)을 따른다.
 struct CaptureThumbnailView: View {
     let capture: Capture
+    /// 세로/가로 비율. 1이면 정사각형.
+    var heightRatio: Double = 1
     let thumbnailLoader: any ThumbnailLoading
     /// 사용자가 방금 재시도 버튼을 눌러 지금 이 화면에서 진행 중인 요청. capture.searchState ==
     /// .processing(큐가 백그라운드에서 처리 중)과는 별개 — 둘 다 스피너로 보여준다.
@@ -22,7 +22,7 @@ struct CaptureThumbnailView: View {
     var body: some View {
         Rectangle()
             .fill(Color.secondary.opacity(0.15))
-            .aspectRatio(1, contentMode: .fit)
+            .aspectRatio(1 / heightRatio, contentMode: .fit)
             .overlay {
                 if let image {
                     Image(uiImage: image)
@@ -31,9 +31,11 @@ struct CaptureThumbnailView: View {
                 }
             }
             .overlay(alignment: .topTrailing) {
-                analysisBadge.padding(6)
+                analysisBadge.padding(8)
             }
-            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            // 길게 눌렀을 때 뜨는 메뉴 미리보기도 둥근 카드 모양을 따르게 한다.
+            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 14, style: .continuous))
             .contextMenu {
                 if !folders.isEmpty {
                     Menu("폴더에 추가") {
@@ -48,7 +50,7 @@ struct CaptureThumbnailView: View {
             }
             .task {
                 image = await thumbnailLoader.thumbnail(
-                    for: capture.photoAssetID, targetSize: CGSize(width: 300, height: 300))
+                    for: capture.photoAssetID, targetSize: CGSize(width: 300, height: 300 * heightRatio))
             }
     }
 
