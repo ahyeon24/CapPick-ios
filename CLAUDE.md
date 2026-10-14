@@ -422,6 +422,30 @@ protocol CaptureStoring: Sendable {
 - 로컬 DB 기술은 GRDB로 정했다(위 §4). 그래도 `Persistence/` 프로토콜은 구현체를 나중에 바꿔도 화면 코드가 안 바뀌게 하려는 경계로 유지한다.
 - last-safe-server의 `assembly`(여러 도메인 결과 조립) 같은 패키지는 아직 대응 화면·기능이 없어서 만들지 않았다.
 
+## 실기기에서 돌리기 (2026-10-13 준비, 아직 실제 기기에 설치해 본 적은 없음)
+
+무료 Apple ID(Personal Team)로 설치할 수 있다 — 앱이 특수 권한(entitlements)을 쓰지 않고 설치
+검증은 개발용 우회 모드다. 준비해 둔 것:
+
+- **서버 주소**: 시뮬레이터는 `http://localhost:8080`, 실기기는 `http://<CapPickDevServerHost>:8080`
+  (`AppEnvironment.developmentServerURL`, `#if targetEnvironment(simulator)`).
+  `CapPickDevServerHost`는 `project.yml`의 `info.properties`에 있고 지금 값은 사용자 Mac의 로컬
+  네트워크 이름 `sim-ahyeon-ui-MacBookAir.local`이다(`scutil --get LocalHostName`). IP가 아니라
+  이름이라 와이파이가 바뀌어도 그대로 된다. 다른 Mac에서 서버를 띄우면 이 값을 바꿔야 한다.
+- **http 허용**: `NSAllowsLocalNetworking`(로컬 네트워크만 암호화 없이 허용) +
+  `NSLocalNetworkUsageDescription`. 이 때문에 Info.plist가 자동 생성 전용에서
+  `CapPick/Info.plist`(XcodeGen `info:`가 생성) + `INFOPLIST_KEY_*` 병합 방식으로 바뀌었다.
+- `xcodebuild build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO`로 기기용 빌드가
+  되는 것까지 확인했다.
+
+**사용자가 직접 해야 하는 것**: Xcode에 Apple ID 등록 → 아이폰 케이블 연결·신뢰 → 아이폰 개발자
+모드 켜기 → Xcode의 Signing & Capabilities에서 Team 선택 → 기기 골라 실행 → 아이폰 설정 > 일반 >
+VPN 및 기기 관리에서 개발자 신뢰. Team을 고르면 `project.pbxproj`에 `DEVELOPMENT_TEAM`이 들어가는데
+`xcodegen generate`를 다시 돌리면 지워지니, 굳히려면 `project.yml`에 넣어야 한다. **조건**: Mac에서
+서버가 켜져 있고 아이폰과 같은 와이파이여야 한다(학교·회사 와이파이는 기기 간 통신이 막혀 있을 수
+있다). Mac 방화벽이 켜져 있으면 java의 들어오는 연결을 허용해야 한다. 무료 계정으로 설치한 앱은
+7일 뒤 만료된다. 서버의 설치별 한도는 테스트용 100장이다(`CapPick-server/CLAUDE.md`).
+
 ## 빌드/재생성 명령어
 
 ```bash

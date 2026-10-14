@@ -16,9 +16,17 @@ struct AppEnvironment: Sendable {
     let usageService: UsageService
     let appDataDeletionService: AppDataDeletionService
 
-    // 로컬 개발 전용 기본값 — 시뮬레이터에서 Mac의 localhost를 그대로 가리킨다. 배포 주소는
-    // 아직 없다(API 명세 §1: "배포 주소 없음"). 실기기로 테스트하려면 Mac의 LAN IP로 바꿔야 한다.
-    private static let developmentServerURL = URL(string: "http://localhost:8080")!
+    // 로컬 개발 전용 주소 — 배포 주소는 아직 없다(API 명세 §1: "배포 주소 없음").
+    // 시뮬레이터는 Mac의 localhost를 그대로 가리키고, 실기기는 같은 와이파이에 있는 Mac을
+    // 로컬 네트워크 이름(Info.plist의 CapPickDevServerHost, project.yml에서 설정)으로 찾는다.
+    private static let developmentServerURL: URL = {
+        #if targetEnvironment(simulator)
+        return URL(string: "http://localhost:8080")!
+        #else
+        let host = Bundle.main.object(forInfoDictionaryKey: "CapPickDevServerHost") as? String
+        return URL(string: "http://\(host ?? "localhost"):8080")!
+        #endif
+    }()
 
     static func live() throws -> AppEnvironment {
         let database = try AppDatabase.makeOnDisk()

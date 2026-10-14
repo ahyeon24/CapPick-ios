@@ -30,6 +30,21 @@ targets:
       - path: CapPick/Resources/E5Small
         type: folder
         buildPhase: resources
+    # 자동 생성 Info.plist(INFOPLIST_KEY_*)로는 못 넣는 키만 여기 둔다 — 둘은 빌드 때 합쳐진다.
+    info:
+      path: CapPick/Info.plist
+      properties:
+        # XcodeGen이 버전을 고정값(1.0/1)으로 써넣지 않게 빌드 설정을 그대로 가리킨다.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # 실기기에서 같은 와이파이의 Mac(개발 서버, http)에 붙기 위한 설정. 로컬 네트워크
+        # (.local 이름·사설 IP)만 암호화 없이 허용하고, 그 밖의 http는 계속 막힌다.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: "같은 와이파이에 있는 개발용 서버에 연결해요."
+        # 실기기가 접속할 개발 서버(Mac)의 로컬 네트워크 이름. Mac에서 `scutil --get LocalHostName`
+        # 으로 확인한다. IP 대신 이름을 쓰는 이유는 와이파이가 바뀌어도 그대로 동작하기 때문.
+        CapPickDevServerHost: sim-ahyeon-ui-MacBookAir.local
     dependencies:
       - package: GRDB
       - package: OnnxRuntime
