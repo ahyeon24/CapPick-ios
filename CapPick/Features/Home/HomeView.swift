@@ -166,7 +166,7 @@ struct HomeView: View {
         if let message = viewModel.analysisPauseMessage {
             Text(message)
                 .font(.footnote)
-                .foregroundStyle(.orange)
+                .foregroundStyle(.secondary)
         }
         HStack {
             TextField("기억나는 말로 검색", text: $searchQuery)

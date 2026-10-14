@@ -1,13 +1,22 @@
 import Foundation
 
-/// 서버가 한도 때문에 작업 접수를 거부한 이유(API 명세 §2의 429 오류 코드).
+/// 분석 큐가 잠시 멈춘 이유. 셋 다 캡처 탓이 아니라서, 캡처를 failed로 만들지 않고 pending으로
+/// 되돌린 뒤 멈춘다.
 enum AnalysisPauseReason: Equatable, Sendable {
+    /// 서버에 연결할 수 없다(서버가 꺼져 있거나, 실기기가 개발 서버와 다른 네트워크에 있음).
+    /// 2026-10-14 추가 — 전에는 연결 실패도 failed로 처리해서, 서버에 닿지 않는 곳에서 앱을 열면
+    /// 대기 중이던 캡처가 줄줄이 failed로 바뀌었다.
+    case serverUnreachable
     /// 이 설치가 분석할 수 있는 총 장수를 다 썼다. 시간이 지나도 풀리지 않는다.
     case quotaExceeded
     /// 서버 전체의 오늘 AI 예산이 소진됐다. 다음 날 풀린다.
     case dailyBudgetExhausted
 
     init?(serverError error: Error) {
+        if case CapPickAPIError.network = error {
+            self = .serverUnreachable
+            return
+        }
         guard case CapPickAPIError.server(_, let code, _, _) = error else { return nil }
         switch code {
         case "QUOTA_EXCEEDED": self = .quotaExceeded
@@ -18,6 +27,7 @@ enum AnalysisPauseReason: Equatable, Sendable {
 
     var userMessage: String {
         switch self {
+        case .serverUnreachable: "분석 대기 중"
         case .quotaExceeded: "분석할 수 있는 장수를 모두 사용했어요. 남은 캡처는 아직 검색되지 않아요."
         case .dailyBudgetExhausted: "오늘 분석할 수 있는 양을 모두 사용했어요. 내일 이어서 분석할게요."
         }
@@ -42,9 +52,12 @@ enum AnalysisPauseReason: Equatable, Sendable {
 /// 되돌린 뒤 큐 전체를 잠시 멈춘다. 이 처리가 없던 때는 한도 소진 뒤 남은 캡처가 전부 줄줄이
 /// failed로 바뀌어 하나씩 수동 재시도해야 했다(실기기처럼 캡처가 수천 장이면 치명적).
 actor AnalysisQueueService {
-    /// 한도 거부 뒤 다시 서버에 물어보기까지의 간격. Home이 보일 때마다 resumeIfNeeded가 불리므로,
+    /// 멈춘 뒤 다시 서버에 물어보기까지의 간격. Home이 보일 때마다 resumeIfNeeded가 불리므로,
     /// 이 간격이 없으면 한도가 그대로인데도 계속 요청을 보낸다. 잠정치.
     static let pauseCooldown: TimeInterval = 600
+    /// 연결 실패는 와이파이만 바뀌면 바로 풀리므로 훨씬 짧게 둔다 — 집에 와서 앱을 열었는데
+    /// 10분을 기다려야 분석이 이어지면 안 된다. 잠정치.
+    static let unreachableCooldown: TimeInterval = 30
 
     private let captureStore: any CaptureStoring
     private let contentAnalysisService: ContentAnalysisService
@@ -68,6 +81,10 @@ actor AnalysisQueueService {
         self.contentAnalysisService = contentAnalysisService
         self.classificationService = classificationService
         self.appStateStore = appStateStore
+    }
+
+    private static func cooldown(for reason: AnalysisPauseReason) -> TimeInterval {
+        reason == .serverUnreachable ? unreachableCooldown : pauseCooldown
     }
 
     /// 큐가 한도 때문에 멈춰 있으면 그 이유. 멈춘 지 pauseCooldown이 지나면 nil이 된다(다음
@@ -126,7 +143,7 @@ actor AnalysisQueueService {
         } catch {
             if let reason = AnalysisPauseReason(serverError: error) {
                 try? await captureStore.markSearchPending(capture.id)
-                pause = (reason, now().addingTimeInterval(Self.pauseCooldown))
+                pause = (reason, now().addingTimeInterval(Self.cooldown(for: reason)))
             } else {
                 try? await captureStore.markSearchFailed(capture.id)
             }
@@ -147,7 +164,7 @@ actor AnalysisQueueService {
         } catch {
             if let reason = AnalysisPauseReason(serverError: error) {
                 try? await captureStore.markClassificationPending(capture.id)
-                pause = (reason, now().addingTimeInterval(Self.pauseCooldown))
+                pause = (reason, now().addingTimeInterval(Self.cooldown(for: reason)))
             } else {
                 try? await captureStore.markClassificationFailed(capture.id)
             }

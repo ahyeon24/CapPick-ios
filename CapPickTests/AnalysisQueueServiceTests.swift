@@ -151,6 +151,35 @@ final class AnalysisQueueServiceTests: XCTestCase {
         XCTAssertEqual(reason, .quotaExceeded)
     }
 
+    func testUnreachableServerLeavesCapturesPendingAndRetriesSoonAfter() async throws {
+        let clock = TestClock()
+        let pausable = makeQueue(now: { clock.now })
+        try await captureStore.save(makeCapture("newer", capturedAt: 2_000))
+        try await captureStore.save(makeCapture("older", capturedAt: 1_000))
+        jobAPIClient.submitResultsByReference["newer"] = .failure(CapPickAPIError.network("offline"))
+        try await appStateStore.setValue("true", for: AppStateKey.analysisStartRequested)
+
+        await pausable.resumeIfNeeded()
+
+        XCTAssertEqual(jobAPIClient.submitCalls.map(\.clientReference), ["newer"], "연결이 안 되면 나머지는 보내지도 않는다")
+        let states = Dictionary(uniqueKeysWithValues: try await captureStore.fetchAll().map { ($0.id, $0.searchState) })
+        XCTAssertEqual(states["newer"], .pending, "연결 실패는 캡처 탓이 아니라서 failed로 남기면 안 된다")
+        XCTAssertEqual(states["older"], .pending)
+        let reason = await pausable.pauseReason()
+        XCTAssertEqual(reason, .serverUnreachable)
+        XCTAssertEqual(reason?.userMessage, "분석 대기 중")
+
+        // 연결 실패는 짧은 간격 뒤 다시 시도한다.
+        clock.now = clock.now.addingTimeInterval(AnalysisQueueService.unreachableCooldown + 1)
+        succeedingSubmitAndStatus(for: "newer")
+        succeedingSubmitAndStatus(for: "older")
+        await pausable.resumeIfNeeded()
+
+        let after = Dictionary(uniqueKeysWithValues: try await captureStore.fetchAll().map { ($0.id, $0.searchState) })
+        XCTAssertEqual(after["newer"], .ready)
+        XCTAssertEqual(after["older"], .ready)
+    }
+
     func testPausedQueueDoesNotAskServerAgainUntilCooldownPasses() async throws {
         let clock = TestClock()
         let pausable = makeQueue(now: { clock.now })
