@@ -53,10 +53,10 @@ struct FolderListView: View {
                         }
                         .swipeActions {
                             Button("삭제", role: .destructive) { folderPendingDeletion = folder }
-                            Button("수정") { editingFolder = folder }.tint(.blue)
+                            Button("수정") { editingFolder = folder }.tint(.gray)
                             Button("재분류") {
                                 reclassificationTarget = ReclassificationTarget(folder: folder, mode: .reclassify)
-                            }.tint(.orange)
+                            }.tint(.black)
                         }
                     }
                 }

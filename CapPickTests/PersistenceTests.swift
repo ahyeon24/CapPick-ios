@@ -268,6 +268,28 @@ final class PersistenceTests: XCTestCase {
         XCTAssertTrue(stale.isEmpty)
     }
 
+    func testFetchFolderCardPreviewsReturnsRecentAssetsPerScope() async throws {
+        let folderStore = GRDBFolderStore(database: database)
+        try await folderStore.save(Folder(
+            id: "f1", displayName: "폴더", criteriaText: nil, criteriaVersion: 1,
+            criteriaState: .pending, membershipRevision: 0))
+        for (id, time) in [("c1", 1_000.0), ("c2", 2_000.0), ("c3", 3_000.0), ("c4", 4_000.0)] {
+            var capture = makeCapture(id, capturedAt: time, searchState: .ready)
+            capture.classificationState = .complete
+            try await captures.save(capture)
+        }
+        try await captures.save(makeCapture("hidden", capturedAt: 5_000, excluded: true, searchState: .ready))
+        for id in ["c2", "c3", "c4"] {
+            try await folderStore.addManually(captureID: id, to: "f1")
+        }
+
+        let previews = try await captures.fetchFolderCardPreviews(limit: 2)
+
+        XCTAssertEqual(previews.all, ["asset-c4", "asset-c3"], "제외된 캡처는 빠지고 최근 것부터")
+        XCTAssertEqual(previews.unclassified, ["asset-c1"])
+        XCTAssertEqual(previews.byFolder["f1"], ["asset-c4", "asset-c3"])
+    }
+
     func testFetchSearchCandidatesFiltersByFolderScope() async throws {
         try await captures.save(makeCapture("inFolder", searchState: .ready))
         try await saveAnalysis(for: "inFolder")

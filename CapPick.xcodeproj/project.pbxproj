@@ -79,6 +79,7 @@
 		812B16055AEDF8362CF44535 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8722A56D93DFE9ED5FDEBB6 /* RootView.swift */; };
 		816646D5FCE6FB052F959999 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C7BADBB2ECF9EDDB0711C9B5 /* Assets.xcassets */; };
 		82192CD74A9E5F9E52EC9E5D /* OnnxEmbeddingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E57DF1909650F9957A89E3 /* OnnxEmbeddingServiceTests.swift */; };
+		87EC25EFE1A50A8229B31127 /* AIProcessingNoticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A577927BCEAF755864C207E1 /* AIProcessingNoticeView.swift */; };
 		8BE3FE81D426605F583EAF0D /* ReclassificationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BECEE85ECD7487C6245CD61 /* ReclassificationViewModel.swift */; };
 		90362A328B15748A3E56E865 /* AnalysisProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9439B7DDD1AE18D0A60C437 /* AnalysisProgress.swift */; };
 		909B7F05B0309755D7CAD6B8 /* ContentAnalysisServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66D320AD3612A87F1997FE6 /* ContentAnalysisServiceTests.swift */; };
@@ -109,6 +110,7 @@
 		D93EEA197A4ECFEDFB49E383 /* AnalysisQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46C37D9ECCC8FA307AF64AC9 /* AnalysisQueueService.swift */; };
 		DBB3A12D840CB6D57E0764A1 /* CapPickHTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656933196EC866C9C7DA89FC /* CapPickHTTP.swift */; };
 		E2FC7D2D2C56835CAE7900A5 /* InstallationRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB83553FB34B985CA66336D /* InstallationRegistrar.swift */; };
+		E4777D6830C45DE097CDE7A8 /* FolderCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33B08FCC9FD385FBFDAEA2B0 /* FolderCardView.swift */; };
 		E4D8C7ABBE4FB6CE5BED5A3A /* URLSessionInstallationAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 284E55E9F48E1F41E0B9EB2E /* URLSessionInstallationAPIClientTests.swift */; };
 		E56E99F894CD8FEA335F92D7 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = F1A2FBAEBB11FA98B8303893 /* onnxruntime */; };
 		EB959B94DC01A96F29805094 /* Capture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A0A6103BCE7E031786398AB /* Capture.swift */; };
@@ -121,6 +123,7 @@
 		F52C43B74D3BE6BC17DF7811 /* SearchStrategyEvaluationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E511CEB40619C09944FC126 /* SearchStrategyEvaluationTests.swift */; };
 		F690D9DF708F920BCCD3A525 /* SearchDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 925D4014037ECFB19C91C3D1 /* SearchDocument.swift */; };
 		F7A68E93F69547D3855F6B74 /* BrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E8E7C711BB82E2E27D40207 /* BrowseView.swift */; };
+		F9E7CA32DBE2D1F80BE36B79 /* HomePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2369DB011FF8DC4E77528983 /* HomePalette.swift */; };
 		FE30FA88484057F3AE3E39CA /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 78D61E290A8C182594F3DFCA /* Tokenizers */; };
 		FF2C96E0FE361F01E371312E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125609B8183C174CB28C6D21 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
@@ -149,6 +152,7 @@
 		1A825D309073C2849F0D0F4D /* SearchServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchServiceTests.swift; sourceTree = "<group>"; };
 		1E149001D1DAC89C9D05C5DC /* OnnxEmbeddingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnnxEmbeddingService.swift; sourceTree = "<group>"; };
 		20BD3280519EFE450A2892EC /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
+		2369DB011FF8DC4E77528983 /* HomePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomePalette.swift; sourceTree = "<group>"; };
 		24A14A1DE7B1D8CD908AFDB2 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		284E55E9F48E1F41E0B9EB2E /* URLSessionInstallationAPIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionInstallationAPIClientTests.swift; sourceTree = "<group>"; };
 		2A7C7094000641714E800B9D /* DiscoveredScreenshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveredScreenshot.swift; sourceTree = "<group>"; };
@@ -157,6 +161,7 @@
 		2C7AFE9C3217467FAB04A33B /* URLSessionUsageAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionUsageAPIClient.swift; sourceTree = "<group>"; };
 		2E128E0F0E242558FC11E9B2 /* LocalTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTask.swift; sourceTree = "<group>"; };
 		2FC8CE1B916A5140302CC82B /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
+		33B08FCC9FD385FBFDAEA2B0 /* FolderCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderCardView.swift; sourceTree = "<group>"; };
 		3A6002B42FB16C763102AAB4 /* CapPickTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = CapPickTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A9B31E81B06D015EC09D8F5 /* CaptureDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDetailView.swift; sourceTree = "<group>"; };
 		3B0E934FC912AFE6B1C1D013 /* InstallationAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallationAPIClient.swift; sourceTree = "<group>"; };
@@ -211,6 +216,7 @@
 		A02AB02E191A15559E53B2C2 /* NetworkingFakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkingFakes.swift; sourceTree = "<group>"; };
 		A324A99F59BF7A45DD32586E /* AppStateStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateStoring.swift; sourceTree = "<group>"; };
 		A3816DBE5453392C7638ABE4 /* SearchRanking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchRanking.swift; sourceTree = "<group>"; };
+		A577927BCEAF755864C207E1 /* AIProcessingNoticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProcessingNoticeView.swift; sourceTree = "<group>"; };
 		A5E57DF1909650F9957A89E3 /* OnnxEmbeddingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnnxEmbeddingServiceTests.swift; sourceTree = "<group>"; };
 		A6728EE77B5BFEF60BC50014 /* ReclassificationStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReclassificationStoring.swift; sourceTree = "<group>"; };
 		A7D21442781C61BD5F12BF57 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDatabase.swift; sourceTree = "<group>"; };
@@ -399,6 +405,7 @@
 		504696371900DEB7FB8ED36B /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
+				A577927BCEAF755864C207E1 /* AIProcessingNoticeView.swift */,
 				481633F4E849FFDF0F535D7E /* OnboardingFlowView.swift */,
 				20BD3280519EFE450A2892EC /* OnboardingViewModel.swift */,
 			);
@@ -461,6 +468,8 @@
 		AD825D4894458AC01BA05C06 /* Home */ = {
 			isa = PBXGroup;
 			children = (
+				33B08FCC9FD385FBFDAEA2B0 /* FolderCardView.swift */,
+				2369DB011FF8DC4E77528983 /* HomePalette.swift */,
 				4E6AEA5E0E082BD1110A816E /* HomeView.swift */,
 				5686D04A43310AF3E66A8565 /* HomeViewModel.swift */,
 			);
@@ -614,6 +623,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				87EC25EFE1A50A8229B31127 /* AIProcessingNoticeView.swift in Sources */,
 				90362A328B15748A3E56E865 /* AnalysisProgress.swift in Sources */,
 				D93EEA197A4ECFEDFB49E383 /* AnalysisQueueService.swift in Sources */,
 				0E400032347E75405FE2A662 /* AppAttestProvider.swift in Sources */,
@@ -644,6 +654,7 @@
 				932EE210A069339014DDA64B /* DiscoveredScreenshot.swift in Sources */,
 				465D64A4690DFFC70FDC8513 /* Folder.swift in Sources */,
 				7E622230DE1932E8C77440B9 /* FolderCapture.swift in Sources */,
+				E4777D6830C45DE097CDE7A8 /* FolderCardView.swift in Sources */,
 				D45BBB6274919B3B2CAB1E53 /* FolderEditView.swift in Sources */,
 				52DBEABCC666AEB5B1B455A7 /* FolderEditViewModel.swift in Sources */,
 				25449D5CE2EE1DF8EE08E7D4 /* FolderListView.swift in Sources */,
@@ -652,6 +663,7 @@
 				6160EF3BCD8AF3CB1FBF451E /* GRDBCaptureStore.swift in Sources */,
 				75FF1D7E06CBE30C35AA620A /* GRDBFolderStore.swift in Sources */,
 				46539825E95520397EB09EA1 /* GRDBReclassificationStore.swift in Sources */,
+				F9E7CA32DBE2D1F80BE36B79 /* HomePalette.swift in Sources */,
 				701F470F3AF6A7F5E4F9C8AB /* HomeView.swift in Sources */,
 				F33098B61A8492F18133ADE9 /* HomeViewModel.swift in Sources */,
 				696557395EA09524A655595B /* InstallationAPIClient.swift in Sources */,
@@ -750,6 +762,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -759,6 +772,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -914,6 +928,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -923,6 +938,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

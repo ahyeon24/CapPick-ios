@@ -64,9 +64,8 @@ struct CaptureThumbnailView: View {
             badge { ProgressView().tint(.white) }
         } else if capture.searchState == .ready {
             badge {
-                Image(systemName: "checkmark.circle.fill")
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, .green)
+                Image(systemName: "checkmark")
+                    .foregroundStyle(.white)
             }
         } else if capture.searchState == .failed {
             badge {

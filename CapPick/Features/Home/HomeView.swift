@@ -19,6 +19,8 @@ struct HomeView: View {
     @State private var isCreatingFolder = false
     @State private var isShowingSettings = false
     @State private var reclassificationTarget: ReclassificationTarget?
+    @State private var editingFolder: Folder?
+    @State private var folderPendingDeletion: Folder?
     // 화면설계서 §7.1·§7.2 HOME-01 상단 검색. 홈 검색창은 마지막 입력을 유지하는 초안이라
     // @State로 충분하다 — NavigationStack에서 자식을 pop해 돌아와도 이 뷰 자체는 다시 안 만들어져
     // 값이 그대로 남는다. 실행은 pendingSearch를 통해서만 한다(입력마다 검색하지 않음).
@@ -54,23 +56,18 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("CapPick").font(.largeTitle.bold())
+                VStack(alignment: .leading, spacing: 0) {
+                    header
                     content
                 }
-                .padding(24)
+                .padding(.horizontal, HomePalette.horizontalPadding)
+                .padding(.bottom, 48)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        isShowingSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel("설정")
-                }
-            }
+            .background(Color(.systemBackground))
+            // 2026-10-15 모노톤 시안: 내비게이션 바 없이 로고·설정 버튼을 화면 안에 직접 둔다.
+            // 이 화면에서만 숨기므로 Browse 등 들어간 화면에는 바가 그대로 보인다.
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView(viewModel: SettingsViewModel(
                     usageService: usageService, appDataDeletionService: appDataDeletionService))
@@ -103,6 +100,29 @@ struct HomeView: View {
                         }
                     }))
             }
+            .sheet(item: $editingFolder) { folder in
+                // ··· 메뉴의 "이름 변경"·"분류 기준 수정" 둘 다 이 시트를 연다 — 지금 FOLDER-02 수정
+                // 시트가 이름과 기준을 한 화면에서 같이 고치는 구조라서다.
+                FolderEditView(viewModel: FolderEditViewModel(
+                    mode: .edit(folder), folderStore: folderStore,
+                    onSaved: { _, _ in Task { await viewModel.refresh() } }))
+            }
+            .alert(
+                "폴더를 삭제할까요?",
+                isPresented: Binding(get: { folderPendingDeletion != nil }, set: { if !$0 { folderPendingDeletion = nil } })
+            ) {
+                Button("삭제", role: .destructive) {
+                    if let folder = folderPendingDeletion {
+                        Task {
+                            try? await folderStore.delete(id: folder.id)
+                            await viewModel.refresh()
+                        }
+                    }
+                }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("폴더만 삭제돼요. 원본 캡처와 다른 폴더 소속은 유지돼요.")
+            }
             .sheet(item: $reclassificationTarget) { target in
                 NavigationStack {
                     ReclassificationView(viewModel: ReclassificationViewModel(
@@ -130,6 +150,26 @@ struct HomeView: View {
         let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         pendingSearch = PendingSearch(query: trimmed)
+    }
+
+    private var header: some View {
+        HStack {
+            Text("CapPick")
+                .font(.system(size: 34, weight: .heavy))
+                .tracking(-1.5)
+                .foregroundStyle(HomePalette.text)
+            Spacer()
+            Button {
+                isShowingSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 22, weight: .light))
+                    .foregroundStyle(HomePalette.text)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("설정")
+        }
+        .frame(height: 65)
     }
 
     @ViewBuilder
@@ -162,21 +202,27 @@ struct HomeView: View {
     @ViewBuilder
     private func analysisStatus(progress: AnalysisProgress) -> some View {
         if progress.total > 0, progress.searchPending > 0 {
-            VStack(alignment: .leading, spacing: 6) {
-                ProgressView(value: Double(progress.searchReady), total: Double(progress.total))
-                    .animation(.easeOut(duration: 0.3), value: progress.searchReady)
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("\(progress.searchReady.formatted()) / \(progress.total.formatted())장 분석 완료")
+                    Text("\(progress.total.formatted())장 중 \(progress.searchReady.formatted())장 분석 완료")
+                        .foregroundStyle(HomePalette.secondary)
                     Spacer()
                     Text(viewModel.analysisPauseMessage ?? "분석 중")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(HomePalette.text)
                 }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12))
+                .tracking(-0.2)
                 .monospacedDigit()
+                MonochromeProgressBar(fraction: Double(progress.searchReady) / Double(progress.total))
             }
+            .padding(.bottom, 20)
         } else if progress.total > 0 {
             Text(completedSummary(progress))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12))
+                .tracking(-0.2)
+                .foregroundStyle(HomePalette.secondary)
+                .padding(.bottom, 20)
         }
     }
 
@@ -186,70 +232,127 @@ struct HomeView: View {
     }
 
     // 하단에는 검색창을 두지 않는다(§7.2 "검색창을 하단으로 옮기지 않음").
+    // 시안처럼 별도 "검색" 버튼은 두지 않고 키보드의 검색 키로 실행한다(입력마다 검색하지 않는 규칙은 그대로).
     @ViewBuilder
     private func searchArea(progress: AnalysisProgress) -> some View {
-        Text("어떤 캡처를 찾고 있나요?").font(.title3)
+        // 시안 굵기 730/750을 한 단계 위(800)로 둔다 — 한글은 굵기가 정해진 Apple SD Gothic Neo로
+        // 그려지고, 시안(웹 미리보기)은 중간 굵기를 받으면 더 굵은 쪽을 고르기 때문(2026-10-15 비교).
+        Text("어떤 캡처를 찾고 있나요?")
+            .font(.system(size: 26, weight: .heavy))
+            .tracking(-1)
+            .foregroundStyle(HomePalette.text)
+            .padding(.top, 21)
+            .padding(.bottom, 18)
         analysisStatus(progress: progress)
-        HStack {
-            TextField("기억나는 말로 검색", text: $searchQuery)
-                .textFieldStyle(.roundedBorder)
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(HomePalette.text)
+            TextField("찾고 싶은 스크린샷 검색", text: $searchQuery)
+                .font(.system(size: 15))
+                .tracking(-0.3)
+                .submitLabel(.search)
                 .onSubmit { executeSearch() }
-            Button("검색") { executeSearch() }
+        }
+        .padding(.horizontal, 13)
+        .frame(height: 46)
+        .background(HomePalette.surface, in: RoundedRectangle(cornerRadius: HomePalette.radius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: HomePalette.radius, style: .continuous)
+                .strokeBorder(HomePalette.separator, lineWidth: 1)
         }
     }
 
     // 화면설계서 HOME-01 카드 목록 — 전체·미분류는 시스템 카드(이름 변경·삭제 없음), 그 뒤가
     // 사용자가 만든 폴더들이다. 폴더가 없어도 전체·미분류는 항상 보인다.
+    // 폴더 관리 화면(FOLDER-01)으로 가는 진입점은 이 시안에서 뺐다(2026-10-15 사용자 결정) — 그
+    // 화면의 이름·기준 수정, 재분류, 삭제는 각 카드의 ··· 메뉴로 옮겼다.
     @ViewBuilder
     private func folderCards(total: Int) -> some View {
-        LazyVGrid(columns: cardColumns, spacing: 12) {
-            folderCard(scope: .all, title: "전체", count: total)
-            folderCard(scope: .unclassified, title: "미분류", count: viewModel.unclassifiedCount)
-            ForEach(viewModel.folders) { folder in
-                folderCard(scope: .folder(folder), title: folder.displayName, count: viewModel.count(for: folder))
-            }
-        }
+        // 시안: 검색 영역 아래 31pt 뒤 구분선, 그 아래 27pt 뒤 "내 폴더".
+        HomePalette.separator.frame(height: 1)
+            .padding(.top, 31)
+            .padding(.bottom, 27)
         HStack {
-            NavigationLink("관리") {
-                FolderListView(
-                    captureStore: captureStore, folderStore: folderStore, thumbnailLoader: thumbnailLoader,
-                    analysisQueueService: analysisQueueService, searchService: searchService,
-                    reclassificationStore: reclassificationStore, reclassificationService: reclassificationService
-                )
-            }
+            Text("내 폴더")
+                .font(.system(size: 24, weight: .heavy))
+                .tracking(-0.9)
+                .foregroundStyle(HomePalette.text)
             Spacer()
-            Button("+ 새 폴더") { isCreatingFolder = true }
+            Button {
+                isCreatingFolder = true
+            } label: {
+                HStack(spacing: 2) {
+                    Image(systemName: "plus").font(.system(size: 14, weight: .medium))
+                    Text("만들기").font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundStyle(HomePalette.text)
+            }
         }
-        .padding(.top, 4)
+        .padding(.bottom, 17)
+        LazyVGrid(columns: cardColumns, alignment: .leading, spacing: 24) {
+            FolderCardView(
+                title: "전체", count: total, photoAssetIDs: viewModel.cardPreviews.all,
+                thumbnailLoader: thumbnailLoader) { browseView(scope: .all) }
+            FolderCardView(
+                title: "미분류", count: viewModel.unclassifiedCount,
+                photoAssetIDs: viewModel.cardPreviews.unclassified,
+                thumbnailLoader: thumbnailLoader) { browseView(scope: .unclassified) }
+            ForEach(viewModel.folders) { folder in
+                FolderCardView(
+                    title: folder.displayName, count: viewModel.count(for: folder),
+                    photoAssetIDs: viewModel.cardPreviews.byFolder[folder.id] ?? [],
+                    thumbnailLoader: thumbnailLoader,
+                    destination: { browseView(scope: .folder(folder)) },
+                    menu: { folderMenu(folder) })
+            }
+        }
     }
 
     @ViewBuilder
-    private func folderCard(scope: BrowseScope, title: String, count: Int) -> some View {
-        NavigationLink {
-            BrowseView(
-                viewModel: BrowseViewModel(
-                    scope: scope, captureStore: captureStore, folderStore: folderStore,
-                    analysisQueueService: analysisQueueService, searchService: searchService),
-                captureStore: captureStore, folderStore: folderStore,
-                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader
-            )
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Spacer()
-                Text(title).font(.headline).foregroundStyle(.primary)
-                Text("\(count.formatted())장").font(.footnote).foregroundStyle(.secondary)
-            }
-            .padding(12)
-            .frame(height: 90, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+    private func folderMenu(_ folder: Folder) -> some View {
+        Button("이름 변경", systemImage: "pencil") { editingFolder = folder }
+        Button("분류 기준 수정", systemImage: "line.3.horizontal.decrease") { editingFolder = folder }
+        Button("기존 캡처 재분류", systemImage: "arrow.triangle.2.circlepath") {
+            reclassificationTarget = ReclassificationTarget(folder: folder, mode: .reclassify)
         }
-        .buttonStyle(.plain)
+        Button("폴더 삭제", systemImage: "trash", role: .destructive) { folderPendingDeletion = folder }
+    }
+
+    private func browseView(scope: BrowseScope) -> some View {
+        BrowseView(
+            viewModel: BrowseViewModel(
+                scope: scope, captureStore: captureStore, folderStore: folderStore,
+                analysisQueueService: analysisQueueService, searchService: searchService),
+            captureStore: captureStore, folderStore: folderStore,
+            analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader
+        )
     }
 
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             openURL(url)
         }
+    }
+}
+
+/// 시안의 얇은 검정 진행 막대 — 기본 ProgressView보다 얇고 끝이 각지다.
+private struct MonochromeProgressBar: View {
+    let fraction: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Rectangle().fill(HomePalette.separator)
+                Rectangle()
+                    .fill(HomePalette.text)
+                    .frame(width: proxy.size.width * min(max(fraction, 0), 1))
+                    .animation(.easeOut(duration: 0.3), value: fraction)
+            }
+        }
+        .frame(height: 2)
+        .accessibilityElement()
+        .accessibilityLabel("분석 진행률")
+        .accessibilityValue("\(Int((fraction * 100).rounded()))퍼센트")
     }
 }

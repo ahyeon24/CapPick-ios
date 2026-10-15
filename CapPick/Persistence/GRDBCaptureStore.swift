@@ -230,6 +230,45 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
+    func fetchFolderCardPreviews(limit: Int) async throws -> FolderCardPreviews {
+        try await database.dbWriter.read { db in
+            let all = try String.fetchAll(db, sql: """
+                SELECT photoAssetID FROM capture WHERE \(Self.visible)
+                ORDER BY capturedAt DESC LIMIT ?
+                """, arguments: [limit])
+            let unclassified = try String.fetchAll(db, sql: """
+                SELECT photoAssetID FROM capture
+                WHERE \(Self.visible)
+                  AND capture.searchState = 'ready'
+                  AND capture.classificationState = 'complete'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM folderCapture
+                    WHERE folderCapture.captureID = capture.id AND folderCapture.state = 'present'
+                  )
+                ORDER BY capturedAt DESC LIMIT ?
+                """, arguments: [limit])
+            // 폴더마다 최근 limit개 — 폴더 수만큼 쿼리를 날리지 않게 창 함수로 한 번에 자른다.
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT folderID, photoAssetID FROM (
+                  SELECT folderCapture.folderID AS folderID, capture.photoAssetID AS photoAssetID,
+                         ROW_NUMBER() OVER (PARTITION BY folderCapture.folderID ORDER BY capture.capturedAt DESC) AS rank
+                  FROM folderCapture
+                  JOIN capture ON capture.id = folderCapture.captureID
+                  WHERE folderCapture.state = 'present' AND \(Self.visible)
+                )
+                WHERE rank <= ?
+                ORDER BY folderID, rank
+                """, arguments: [limit])
+            var byFolder: [String: [String]] = [:]
+            for row in rows {
+                let folderID: String = row["folderID"]
+                let photoAssetID: String = row["photoAssetID"]
+                byFolder[folderID, default: []].append(photoAssetID)
+            }
+            return FolderCardPreviews(all: all, unclassified: unclassified, byFolder: byFolder)
+        }
+    }
+
     func fetchFolderCaptureCounts() async throws -> [String: Int] {
         try await database.dbWriter.read { db in
             let rows = try Row.fetchAll(db, sql: """
