@@ -48,7 +48,8 @@ struct CaptureThumbnailView: View {
                     Button("이 폴더에서 제거", role: .destructive, action: onRemoveFromCurrentFolder)
                 }
             }
-            .task {
+            .task(id: capture.photoAssetID) {
+                image = nil
                 image = await thumbnailLoader.thumbnail(
                     for: capture.photoAssetID, targetSize: CGSize(width: 300, height: 300 * heightRatio))
             }

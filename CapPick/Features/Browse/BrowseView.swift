@@ -86,6 +86,8 @@ struct BrowseView: View {
 
     private func masonryColumn(_ indices: [Int], captures: [Capture], ratios: [Double]) -> some View {
         LazyVStack(spacing: Self.gridSpacing) {
+            // 칸은 반드시 캡처 ID로 구분한다 — 인덱스로 구분하면 검색 결과가 바뀌어도 같은 자리의
+            // 칸이 재사용돼 이전 목록의 썸네일이 그대로 남는다(2026-10-15 실제로 겪은 버그).
             ForEach(indices, id: \.self) { index in
                 let capture = captures[index]
                         NavigationLink {
@@ -108,6 +110,7 @@ struct BrowseView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .id(capture.id)
             }
         }
     }
