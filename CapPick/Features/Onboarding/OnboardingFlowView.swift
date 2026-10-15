@@ -5,6 +5,7 @@ struct OnboardingFlowView: View {
     @State private var viewModel: OnboardingViewModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    @State private var isShowingAINotice = false
 
     init(viewModel: OnboardingViewModel) {
         _viewModel = State(initialValue: viewModel)
@@ -26,13 +27,17 @@ struct OnboardingFlowView: View {
         }
     }
 
-    // ON-01 시작 안내
+    // ON-01 시작 안내 — 기능 설명 캐러셀 없이 핵심 한 가지만 전달한다(2026-10-15 사용자 결정).
     private var welcome: some View {
         VStack(spacing: 16) {
             Spacer()
+            // 앱 아이콘이 정해지면 이 자리를 아이콘 이미지로 바꾼다(아직 아이콘 없음).
+            symbolBadge("photo.stack")
             Text("CapPick").font(.largeTitle.bold())
-            Text("쌓아둔 캡처, 기억나는 말로 찾아보세요").font(.title3)
-            Text("기존 스크린샷을 찾아 폴더로 정리하고, 필요한 캡처를 검색으로 다시 찾을 수 있어요.")
+            Text("쌓아둔 캡처,\n기억나는 말로 찾아보세요")
+                .font(.title3)
+                .multilineTextAlignment(.center)
+            Text("AI가 스크린샷의 내용을 분석해서\n필요한 캡처를 쉽게 찾고 정리해줘요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -47,8 +52,13 @@ struct OnboardingFlowView: View {
     private var photoAccess: some View {
         VStack(spacing: 16) {
             Spacer()
-            Text("기존 스크린샷을 찾아 정리하려면 사진 접근이 필요해요.")
-                .font(.title3)
+            symbolBadge("photo.on.rectangle")
+            Text("스크린샷을 불러올게요").font(.title2.bold())
+            Text("CapPick이 기존 스크린샷을 찾고\n정리하려면 사진 접근이 필요해요.")
+                .multilineTextAlignment(.center)
+            Text("사진 앱의 원본을 이동하거나 삭제하지 않아요.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             authorizationNote
             if viewModel.isWorking {
@@ -59,7 +69,7 @@ struct OnboardingFlowView: View {
             }
             Spacer()
             photoAccessButton
-            Button("지금은 건너뛰기") { Task { await viewModel.skipPhotoAccess() } }
+            Button("나중에 하기") { Task { await viewModel.skipPhotoAccess() } }
         }
     }
 
@@ -95,38 +105,82 @@ struct OnboardingFlowView: View {
         }
     }
 
-    // ON-03 전체 분석 시작
+    // ON-03 전체 분석 시작 — 사진 권한과 별개로, 외부 AI 처리를 여기서 처음 안내하고 동의받는다.
     private var analysisStart: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             Spacer()
-            Text("기존 캡처를 정리할게요").font(.title2.bold())
+            symbolBadge("sparkles")
             if viewModel.screenshotCount == 0 {
-                Text("접근 가능한 스크린샷이 없어요.")
+                Text("접근 가능한 스크린샷이 없어요").font(.title2.bold())
                 Text("사진 접근 권한을 확인하거나 허용할 사진을 추가해 주세요.")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             } else {
-                Text("접근 가능한 스크린샷 \(viewModel.screenshotCount.formatted())장")
-                Text("최근 캡처부터 차례로 분석해요.").font(.subheadline).foregroundStyle(.secondary)
+                Text("\(viewModel.screenshotCount.formatted())개의 캡처를 찾았어요")
+                    .font(.title2.bold())
+                    .multilineTextAlignment(.center)
+                Text("최근 캡처부터 차례대로 분석해\n검색할 수 있게 준비할게요.")
+                    .multilineTextAlignment(.center)
+                VStack(alignment: .leading, spacing: 8) {
+                    checkRow("완료된 캡처부터 바로 검색 가능")
+                    checkRow("앱을 다시 열면 남은 분석 이어서 진행")
+                }
+                .font(.subheadline)
+                .padding(.top, 4)
             }
-            // 분석 기능을 연결하기 전이라 실제로 외부로 전송되는 정보가 없다. 최종 안내 문구는 AI 공급자 선정 후 확정.
-            Text("AI 처리 안내(임시): 분석 기능을 연결하기 전이라 아직 외부로 전송되는 정보는 없어요.")
-                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Button {
+                isShowingAINotice = true
+            } label: {
+                Label("AI 처리 안내", systemImage: "chevron.right")
+                    .labelStyle(TrailingIconLabelStyle())
+                    .font(.subheadline)
+            }
+            .padding(.top, 4)
             if let message = viewModel.errorMessage {
                 Text(message).foregroundStyle(.red).font(.footnote)
             }
             Spacer()
-            Button("전체 캡처 분석 시작") { Task { await viewModel.startAnalysis() } }
+            Button("캡처 분석 시작하기") { Task { await viewModel.startAnalysis() } }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .disabled(viewModel.screenshotCount == 0 || viewModel.isWorking)
-            Button("나중에 시작하기") { Task { await viewModel.postponeAnalysis() } }
+            Button("나중에 하기") { Task { await viewModel.postponeAnalysis() } }
                 .disabled(viewModel.isWorking)
+        }
+        .sheet(isPresented: $isShowingAINotice) {
+            AIProcessingNoticeView()
+        }
+    }
+
+    private func symbolBadge(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 34, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 76, height: 76)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.tint))
+            .padding(.bottom, 4)
+    }
+
+    private func checkRow(_ text: String) -> some View {
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: "checkmark").foregroundStyle(.tint)
         }
     }
 
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             openURL(url)
+        }
+    }
+}
+
+/// "AI 처리 안내 ›"처럼 아이콘을 글자 뒤에 붙인다.
+private struct TrailingIconLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.title
+            configuration.icon.font(.caption.weight(.semibold))
         }
     }
 }
