@@ -157,17 +157,39 @@ struct HomeView: View {
     }
 
     // 화면설계서 §7.1 HOME-01 상단 큰 영역 — 안내 문구·작은 분석 상태·검색창을 한 덩어리로 둔다.
+    /// 분석 진행 상태(AI-04). 남은 캡처가 있으면 진행 막대와 "N / 전체장 분석 완료"를, 다 끝났으면
+    /// 막대 없이 완료 장수만 보여준다. 큐가 멈춰 있으면(분석 대기·한도) 그 안내를 막대 아래에 붙인다.
+    @ViewBuilder
+    private func analysisStatus(progress: AnalysisProgress) -> some View {
+        if progress.total > 0, progress.searchPending > 0 {
+            VStack(alignment: .leading, spacing: 6) {
+                ProgressView(value: Double(progress.searchReady), total: Double(progress.total))
+                    .animation(.easeOut(duration: 0.3), value: progress.searchReady)
+                HStack {
+                    Text("\(progress.searchReady.formatted()) / \(progress.total.formatted())장 분석 완료")
+                    Spacer()
+                    Text(viewModel.analysisPauseMessage ?? "분석 중")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            }
+        } else if progress.total > 0 {
+            Text(completedSummary(progress))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func completedSummary(_ progress: AnalysisProgress) -> String {
+        let done = "\(progress.searchReady.formatted())장 분석 완료"
+        return progress.searchFailed > 0 ? done + " · \(progress.searchFailed.formatted())장 실패" : done
+    }
+
     // 하단에는 검색창을 두지 않는다(§7.2 "검색창을 하단으로 옮기지 않음").
     @ViewBuilder
     private func searchArea(progress: AnalysisProgress) -> some View {
         Text("어떤 캡처를 찾고 있나요?").font(.title3)
-        Text("\(progress.searchReady.formatted()) / \(progress.total.formatted())장 분석 완료")
-            .foregroundStyle(.secondary)
-        if let message = viewModel.analysisPauseMessage {
-            Text(message)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
+        analysisStatus(progress: progress)
         HStack {
             TextField("기억나는 말로 검색", text: $searchQuery)
                 .textFieldStyle(.roundedBorder)
