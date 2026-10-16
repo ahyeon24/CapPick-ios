@@ -25,12 +25,12 @@ struct FolderCardView<Destination: View, Menu: View>: View {
                         Text(title)
                             .font(.system(size: 15, weight: .bold))
                             .tracking(-0.25)
-                            .foregroundStyle(HomePalette.text)
+                            .foregroundStyle(AppPalette.text)
                             .lineLimit(1)
                         Text("\(count.formatted())장")
                             .font(.system(size: 12))
                             .tracking(-0.15)
-                            .foregroundStyle(HomePalette.secondary)
+                            .foregroundStyle(AppPalette.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -42,7 +42,7 @@ struct FolderCardView<Destination: View, Menu: View>: View {
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(HomePalette.text)
+                            .foregroundStyle(AppPalette.text)
                             .frame(width: 32, height: 22)
                             .contentShape(Rectangle())
                     }
@@ -89,8 +89,8 @@ private struct FolderCardPreview: View {
 
     var body: some View {
         let ids = Array(photoAssetIDs.prefix(3).reversed())
-        RoundedRectangle(cornerRadius: HomePalette.radius, style: .continuous)
-            .fill(ids.isEmpty ? HomePalette.surface : HomePalette.collage)
+        RoundedRectangle(cornerRadius: AppPalette.radius, style: .continuous)
+            .fill(ids.isEmpty ? AppPalette.surface : AppPalette.collage)
             .frame(height: 132)
             .overlay {
                 GeometryReader { proxy in
@@ -104,12 +104,12 @@ private struct FolderCardPreview: View {
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: HomePalette.radius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppPalette.radius, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: HomePalette.radius, style: .continuous)
-                    .strokeBorder(HomePalette.separator, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppPalette.radius, style: .continuous)
+                    .strokeBorder(AppPalette.separator, lineWidth: 1)
             }
-            .contentShape(RoundedRectangle(cornerRadius: HomePalette.radius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: AppPalette.radius, style: .continuous))
     }
 }
 
@@ -131,7 +131,7 @@ private struct PreviewThumbnail: View {
             }
             .frame(width: size.width, height: size.height)
             .clipped()
-            .overlay { Rectangle().strokeBorder(HomePalette.miniBorder, lineWidth: 1) }
+            .overlay { Rectangle().strokeBorder(AppPalette.miniBorder, lineWidth: 1) }
             .shadow(color: .black.opacity(0.08), radius: 3, y: 2)
             .task(id: photoAssetID) {
                 image = await thumbnailLoader.thumbnail(

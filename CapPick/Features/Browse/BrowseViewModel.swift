@@ -36,8 +36,11 @@ final class BrowseViewModel {
     /// 구분하는 데 쓴다(SEARCH-08).
     private(set) var isSearchActive = false
     var searchText = ""
+    /// 지금 화면에 결과가 보이는 검색어(입력 중인 searchText와 다를 수 있다) — 제목에 쓴다.
+    private(set) var activeQuery = ""
 
-    let scope: BrowseScope
+    /// 폴더 이름·기준이 이 화면에서 바뀌면 refreshFolder()가 새 값으로 갈아끼운다.
+    private(set) var scope: BrowseScope
     private let captureStore: any CaptureStoring
     private let folderStore: any FolderStoring
     private let analysisQueueService: AnalysisQueueService
@@ -102,6 +105,7 @@ final class BrowseViewModel {
             guard latestSearchRequestID == requestID else { return } // 이미 더 최신 요청이 있음
             captures = results
             isSearchActive = true
+            activeQuery = query
         } catch {
             guard latestSearchRequestID == requestID else { return }
             errorMessage = "검색을 완료하지 못했어요."
@@ -109,9 +113,17 @@ final class BrowseViewModel {
     }
 
     /// 검색어를 지우면(SEARCH-*: "검색어 지우기") scope의 최근순 목록으로 돌아간다 — 네트워크 요청 없음.
+    /// 폴더 수정 시트에서 저장한 뒤 부른다 — 제목 등이 새 이름을 따르게 한다.
+    func refreshFolder() async {
+        guard case .folder(let folder) = scope,
+              let updated = try? await folderStore.fetchFolder(id: folder.id) else { return }
+        scope = .folder(updated)
+    }
+
     func clearSearch() async {
         latestSearchRequestID = nil
         isSearchActive = false
+        activeQuery = ""
         searchText = ""
         await load()
     }

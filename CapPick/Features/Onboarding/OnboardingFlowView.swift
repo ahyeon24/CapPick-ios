@@ -33,7 +33,9 @@ struct OnboardingFlowView: View {
             Spacer()
             // 앱 아이콘이 정해지면 이 자리를 아이콘 이미지로 바꾼다(아직 아이콘 없음).
             symbolBadge("photo.stack")
-            Text("CapPick").font(.largeTitle.bold())
+            Text("CapPick")
+                .font(.system(size: 34, weight: .heavy))
+                .tracking(-1.5)
             Text("쌓아둔 캡처,\n기억나는 말로 찾아보세요")
                 .font(.title3)
                 .multilineTextAlignment(.center)
@@ -43,8 +45,7 @@ struct OnboardingFlowView: View {
                 .multilineTextAlignment(.center)
             Spacer()
             Button("시작하기") { Task { await viewModel.start() } }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(PrimaryButtonStyle())
         }
     }
 
@@ -53,7 +54,7 @@ struct OnboardingFlowView: View {
         VStack(spacing: 16) {
             Spacer()
             symbolBadge("photo.on.rectangle")
-            Text("스크린샷을 불러올게요").font(.title2.bold())
+            Text("스크린샷을 불러올게요").font(AppPalette.title(26)).tracking(-1)
             Text("CapPick이 기존 스크린샷을 찾고\n정리하려면 사진 접근이 필요해요.")
                 .multilineTextAlignment(.center)
             Text("사진 앱의 원본을 이동하거나 삭제하지 않아요.")
@@ -70,6 +71,7 @@ struct OnboardingFlowView: View {
             Spacer()
             photoAccessButton
             Button("나중에 하기") { Task { await viewModel.skipPhotoAccess() } }
+                .foregroundStyle(AppPalette.secondary)
         }
     }
 
@@ -95,12 +97,10 @@ struct OnboardingFlowView: View {
         switch viewModel.authorization {
         case .denied, .restricted:
             Button("설정으로 이동") { openSettings() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(PrimaryButtonStyle())
         case .notDetermined, .limited, .authorized:
             Button("사진 접근 허용") { Task { await viewModel.requestPhotoAccess() } }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(viewModel.isWorking)
         }
     }
@@ -111,12 +111,13 @@ struct OnboardingFlowView: View {
             Spacer()
             symbolBadge("sparkles")
             if viewModel.screenshotCount == 0 {
-                Text("접근 가능한 스크린샷이 없어요").font(.title2.bold())
+                Text("접근 가능한 스크린샷이 없어요").font(AppPalette.title(26)).tracking(-1)
                 Text("사진 접근 권한을 확인하거나 허용할 사진을 추가해 주세요.")
                     .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             } else {
                 Text("\(viewModel.screenshotCount.formatted())개의 캡처를 찾았어요")
-                    .font(.title2.bold())
+                    .font(AppPalette.title(26))
+                    .tracking(-1)
                     .multilineTextAlignment(.center)
                 Text("최근 캡처부터 차례대로 분석해\n검색할 수 있게 준비할게요.")
                     .multilineTextAlignment(.center)
@@ -140,10 +141,10 @@ struct OnboardingFlowView: View {
             }
             Spacer()
             Button("캡처 분석 시작하기") { Task { await viewModel.startAnalysis() } }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(viewModel.screenshotCount == 0 || viewModel.isWorking)
             Button("나중에 하기") { Task { await viewModel.postponeAnalysis() } }
+                .foregroundStyle(AppPalette.secondary)
                 .disabled(viewModel.isWorking)
         }
         .sheet(isPresented: $isShowingAINotice) {
@@ -156,7 +157,7 @@ struct OnboardingFlowView: View {
             .font(.system(size: 34, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: 76, height: 76)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.tint))
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(AppPalette.text))
             .padding(.bottom, 4)
     }
 
@@ -164,7 +165,7 @@ struct OnboardingFlowView: View {
         Label {
             Text(text)
         } icon: {
-            Image(systemName: "checkmark").foregroundStyle(.tint)
+            Image(systemName: "checkmark").foregroundStyle(AppPalette.text)
         }
     }
 

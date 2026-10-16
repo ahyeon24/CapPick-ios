@@ -60,7 +60,7 @@ struct HomeView: View {
                     header
                     content
                 }
-                .padding(.horizontal, HomePalette.horizontalPadding)
+                .padding(.horizontal, AppPalette.horizontalPadding)
                 .padding(.bottom, 48)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -157,14 +157,14 @@ struct HomeView: View {
             Text("CapPick")
                 .font(.system(size: 34, weight: .heavy))
                 .tracking(-1.5)
-                .foregroundStyle(HomePalette.text)
+                .foregroundStyle(AppPalette.text)
             Spacer()
             Button {
                 isShowingSettings = true
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 22, weight: .light))
-                    .foregroundStyle(HomePalette.text)
+                    .foregroundStyle(AppPalette.text)
                     .frame(width: 44, height: 44)
             }
             .accessibilityLabel("설정")
@@ -205,11 +205,11 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("\(progress.total.formatted())장 중 \(progress.searchReady.formatted())장 분석 완료")
-                        .foregroundStyle(HomePalette.secondary)
+                        .foregroundStyle(AppPalette.secondary)
                     Spacer()
                     Text(viewModel.analysisPauseMessage ?? "분석 중")
                         .fontWeight(.semibold)
-                        .foregroundStyle(HomePalette.text)
+                        .foregroundStyle(AppPalette.text)
                 }
                 .font(.system(size: 12))
                 .tracking(-0.2)
@@ -221,7 +221,7 @@ struct HomeView: View {
             Text(completedSummary(progress))
                 .font(.system(size: 12))
                 .tracking(-0.2)
-                .foregroundStyle(HomePalette.secondary)
+                .foregroundStyle(AppPalette.secondary)
                 .padding(.bottom, 20)
         }
     }
@@ -240,14 +240,14 @@ struct HomeView: View {
         Text("어떤 캡처를 찾고 있나요?")
             .font(.system(size: 26, weight: .heavy))
             .tracking(-1)
-            .foregroundStyle(HomePalette.text)
+            .foregroundStyle(AppPalette.text)
             .padding(.top, 21)
             .padding(.bottom, 18)
         analysisStatus(progress: progress)
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(HomePalette.text)
+                .foregroundStyle(AppPalette.text)
             TextField("찾고 싶은 스크린샷 검색", text: $searchQuery)
                 .font(.system(size: 15))
                 .tracking(-0.3)
@@ -256,10 +256,10 @@ struct HomeView: View {
         }
         .padding(.horizontal, 13)
         .frame(height: 46)
-        .background(HomePalette.surface, in: RoundedRectangle(cornerRadius: HomePalette.radius, style: .continuous))
+        .background(AppPalette.surface, in: RoundedRectangle(cornerRadius: AppPalette.radius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: HomePalette.radius, style: .continuous)
-                .strokeBorder(HomePalette.separator, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppPalette.radius, style: .continuous)
+                .strokeBorder(AppPalette.separator, lineWidth: 1)
         }
     }
 
@@ -270,14 +270,14 @@ struct HomeView: View {
     @ViewBuilder
     private func folderCards(total: Int) -> some View {
         // 시안: 검색 영역 아래 31pt 뒤 구분선, 그 아래 27pt 뒤 "내 폴더".
-        HomePalette.separator.frame(height: 1)
+        AppPalette.separator.frame(height: 1)
             .padding(.top, 31)
             .padding(.bottom, 27)
         HStack {
             Text("내 폴더")
                 .font(.system(size: 24, weight: .heavy))
                 .tracking(-0.9)
-                .foregroundStyle(HomePalette.text)
+                .foregroundStyle(AppPalette.text)
             Spacer()
             Button {
                 isCreatingFolder = true
@@ -286,7 +286,7 @@ struct HomeView: View {
                     Image(systemName: "plus").font(.system(size: 14, weight: .medium))
                     Text("만들기").font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundStyle(HomePalette.text)
+                .foregroundStyle(AppPalette.text)
             }
         }
         .padding(.bottom, 17)
@@ -325,8 +325,12 @@ struct HomeView: View {
                 scope: scope, captureStore: captureStore, folderStore: folderStore,
                 analysisQueueService: analysisQueueService, searchService: searchService),
             captureStore: captureStore, folderStore: folderStore,
-            analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader
+            analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader,
+            // 사용자 폴더 화면에도 홈 카드와 같은 ··· 관리 메뉴를 둔다(2026-10-16 사용자 결정).
+            folderManagement: scope.folderID == nil ? nil : BrowseFolderManagement(
+                reclassificationService: reclassificationService, reclassificationStore: reclassificationStore)
         )
+        .onDisappear { Task { await viewModel.refresh() } }
     }
 
     private func openSettings() {
@@ -343,9 +347,9 @@ private struct MonochromeProgressBar: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Rectangle().fill(HomePalette.separator)
+                Rectangle().fill(AppPalette.separator)
                 Rectangle()
-                    .fill(HomePalette.text)
+                    .fill(AppPalette.text)
                     .frame(width: proxy.size.width * min(max(fraction, 0), 1))
                     .animation(.easeOut(duration: 0.3), value: fraction)
             }
