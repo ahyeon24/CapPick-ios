@@ -6,6 +6,7 @@ protocol ThumbnailLoading: Sendable {
     func thumbnail(for photoAssetID: String, targetSize: CGSize) async -> UIImage?
 
     /// DETAIL-01 확대 보기용 — 그리드 썸네일(정사각형으로 자름)과 달리 원본 가로세로 비율을
-    /// 유지한 화면 표시용 고화질 이미지.
-    func fullImage(for photoAssetID: String) async -> UIImage?
+    /// 유지한 화면 표시용 고화질 이미지. targetSize(픽셀)를 주면 그 안에 들어가는 크기로만 받는다
+    /// (2026-10-17 — 화면보다 큰 원본을 통째로 읽지 않게). nil이면 원본 최대 크기.
+    func fullImage(for photoAssetID: String, fitting targetSize: CGSize?) async -> UIImage?
 }

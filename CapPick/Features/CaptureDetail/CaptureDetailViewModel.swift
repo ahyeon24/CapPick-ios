@@ -8,6 +8,10 @@ final class CaptureDetailViewModel {
     private(set) var capture: Capture
     private(set) var folders: [Folder] = []
     private(set) var fullImage: UIImage?
+    /// 원본이 오기 전에 먼저 보여주는 작은 이미지(목록 썸네일과 같은 수준) — 넘길 때 로딩 표시
+    /// 대신 흐릿한 사진이 먼저 보이게 한다(2026-10-17).
+    private(set) var previewImage: UIImage?
+    private var hasRequestedImage = false
     private(set) var isLoadingImage = false
     private(set) var isRetrying = false
     private(set) var errorMessage: String?
@@ -32,7 +36,9 @@ final class CaptureDetailViewModel {
 
     /// 목록에서 넘어온 capture는 오래됐을 수 있어 최신 상태로 다시 읽는다. 원본 이미지는 본문
     /// 표시를 막지 않도록 별도로 불러온다(§9: "원본 다운로드 중에는 진행 표시").
-    func load() async {
+    /// fitting: 화면에 그릴 영역의 픽셀 크기. 이미지는 한 번만 불러온다 — 옆 사진 미리 불러오기와
+    /// 화면에 나타날 때의 호출이 겹쳐도 다시 받지 않는다.
+    func load(fitting targetSize: CGSize? = nil) async {
         errorMessage = nil
         do {
             if let latest = try await captureStore.fetchCapture(id: capture.id) {
@@ -43,8 +49,12 @@ final class CaptureDetailViewModel {
             errorMessage = "정보를 불러오지 못했어요."
         }
 
+        guard !hasRequestedImage else { return }
+        hasRequestedImage = true
         isLoadingImage = true
-        fullImage = await thumbnailLoader.fullImage(for: capture.photoAssetID)
+        previewImage = await thumbnailLoader.thumbnail(
+            for: capture.photoAssetID, targetSize: CGSize(width: 360, height: 780))
+        fullImage = await thumbnailLoader.fullImage(for: capture.photoAssetID, fitting: targetSize)
         isLoadingImage = false
     }
 

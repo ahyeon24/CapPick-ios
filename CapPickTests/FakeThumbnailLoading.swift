@@ -8,7 +8,7 @@ final class FakeThumbnailLoading: ThumbnailLoading, @unchecked Sendable {
         imageToReturn
     }
 
-    func fullImage(for photoAssetID: String) async -> UIImage? {
+    func fullImage(for photoAssetID: String, fitting targetSize: CGSize?) async -> UIImage? {
         imageToReturn
     }
 }

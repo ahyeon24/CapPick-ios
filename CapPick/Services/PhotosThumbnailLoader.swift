@@ -27,7 +27,7 @@ struct PhotosThumbnailLoader: ThumbnailLoading {
         }
     }
 
-    func fullImage(for photoAssetID: String) async -> UIImage? {
+    func fullImage(for photoAssetID: String, fitting targetSize: CGSize?) async -> UIImage? {
         let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [photoAssetID], options: nil)
         guard let asset = fetchResult.firstObject else { return nil }
 
@@ -38,7 +38,7 @@ struct PhotosThumbnailLoader: ThumbnailLoading {
         return await withCheckedContinuation { continuation in
             imageManager.requestImage(
                 for: asset,
-                targetSize: PHImageManagerMaximumSize,
+                targetSize: targetSize ?? PHImageManagerMaximumSize,
                 contentMode: .aspectFit, // 정사각형으로 안 자르고 원본 비율을 유지한다 — 그리드 썸네일과의 차이.
                 options: options
             ) { image, _ in

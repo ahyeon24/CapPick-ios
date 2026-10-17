@@ -60,6 +60,17 @@ failed가 아니라 **pending으로 되돌리고**(`CaptureStoring.markSearchPen
 10분이 지나 있어야 한다 — 백그라운드에서 스스로 재개하지는 않는다. 시뮬레이터에서 한도를 낮춰
 실제로 멈추고 문구가 뜨는 것까지 확인했다. 테스트 189개 통과.
 
+**DETAIL-01을 갤러리처럼 (2026-10-17, 사용자 요청)**: `CaptureDetailView`가 캡처 한 장이 아니라
+들어온 목록 전체(`captures` + `initialCaptureID`)를 받아 `TabView(.page)`로 옆으로 넘겨 본다(사진 앱
+갤러리처럼, 검색 결과·폴더의 순서 그대로). 사진은 화면에 맞추고 위아래 스크롤은 없앴다(핀치 확대는
+손을 떼면 원래 크기로). 상단: 즐겨찾기 · ⓘ(분석 상태·소속 폴더를 아래에서 올라오는 시트로) ·
+···(공유, 다시 분석하기, 캡픽에서 제외). 본문에 있던 상태·폴더 글자와 "다시 분석하기" 버튼은 각각
+ⓘ 시트와 ··· 메뉴로 옮겼다. 캡처별 `CaptureDetailViewModel`은 관찰 대상이 아닌 캐시에 두어 넘겼다
+돌아와도 불러온 원본을 다시 쓴다. **넘길 때 로딩 줄이기**: (1) 원본 전에 목록 수준 썸네일(`previewImage`)을
+먼저 보여주고, (2) 원본은 화면 영역 픽셀 크기로만 받으며(`ThumbnailLoading.fullImage(for:fitting:)`,
+nil이면 최대 크기), (3) 지금 사진의 앞뒤 한 장을 미리 불러 둔다(`prefetchNeighbors`). 이미지는
+캡처당 한 번만 요청한다(`hasRequestedImage`). 글자 선택(Live Text)은 원본이 온 뒤부터 된다.
+
 **다른 화면도 모노톤으로 (2026-10-16, 사용자 결정)**: 디자인 값을 `DesignSystem/AppPalette`(전
 HomePalette)로 옮겨 앱 전체가 같이 쓰고, 공용 `PrimaryButtonStyle`(검정 꽉 찬 버튼)·`fieldBox()`
 (회색 입력 상자)·`AppPalette.title(_:)`(큰 제목 heavy)를 추가했다. BROWSE-01은 Figma Make의 폴더 상세

@@ -183,10 +183,11 @@ struct BrowseView: View {
             ForEach(indices, id: \.self) { index in
                 let capture = captures[index]
                         NavigationLink {
-                            CaptureDetailView(viewModel: CaptureDetailViewModel(
-                                capture: capture, captureStore: captureStore, folderStore: folderStore,
-                                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader
-                            ))
+                            // 지금 보이는 목록 순서 그대로 옆으로 넘겨 볼 수 있게 목록 전체를 넘긴다.
+                            CaptureDetailView(
+                                captures: captures, initialCaptureID: capture.id,
+                                captureStore: captureStore, folderStore: folderStore,
+                                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader)
                         } label: {
                             CaptureThumbnailView(
                                 capture: capture,
