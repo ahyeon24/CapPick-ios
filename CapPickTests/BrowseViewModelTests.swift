@@ -366,4 +366,32 @@ final class BrowseViewModelTests: XCTestCase {
         // "outside"도 키워드는 일치하지만 폴더 범위 밖이라 결과에서 빠져야 한다(SEARCH-04).
         XCTAssertEqual(viewModel.captures.map(\.id), ["inFolder"])
     }
+
+    /// 홈에서 검색해 들어올 때 검색과 목록 읽기가 같이 시작되는 상황 — 늦게 끝난 목록 읽기가
+    /// 검색 결과를 전체 목록으로 덮어쓰면 안 된다(2026-10-17 실기기에서 발견).
+    func testListLoadFinishingDuringSearchDoesNotOverwriteResults() async throws {
+        let database = try AppDatabase.makeInMemory()
+        let store = GRDBCaptureStore(database: database)
+        for (id, text) in [("matching", "면접 질문 목록"), ("other", "파스타 맛집")] {
+            try await store.save(Capture(
+                id: id, photoAssetID: "asset-\(id)", capturedAt: Date(timeIntervalSince1970: 1_000),
+                width: 100, height: 200, availability: .accessible, excludedAt: nil, favorite: false,
+                contentRevision: 1, searchState: .ready, classificationState: .complete))
+            try await saveAnalysis(store: store, captureID: id, ocrText: text)
+        }
+        let slowEmbedder = FakeTextEmbedder()
+        slowEmbedder.delayByText["면접"] = .milliseconds(150) // 첫 검색처럼 검색이 늦게 끝난다
+        let viewModel = BrowseViewModel(
+            scope: .all, captureStore: store, folderStore: GRDBFolderStore(database: database),
+            analysisQueueService: try makeAnalysisQueueService(captureStore: store, database: database),
+            searchService: try makeSearchService(captureStore: store, embedder: slowEmbedder),
+            initialQuery: "면접")
+
+        let searchTask = Task { await viewModel.search() }
+        try await Task.sleep(for: .milliseconds(20))
+        await viewModel.load() // 검색이 끝나기 전에 목록 읽기가 끝난다
+        _ = await searchTask.value
+
+        XCTAssertEqual(viewModel.captures.map(\.id), ["matching"])
+    }
 }

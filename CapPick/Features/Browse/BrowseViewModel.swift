@@ -71,8 +71,13 @@ final class BrowseViewModel {
         defer { isLoading = false }
         errorMessage = nil
         do {
-            captures = try await fetchScopedCaptures()
+            let scoped = try await fetchScopedCaptures()
             folders = try await folderStore.fetchAll()
+            // 검색이 진행 중이거나 끝나 결과를 보여주는 중이면 전체 목록으로 덮어쓰지 않는다 —
+            // 홈에서 검색해 들어올 때 검색과 목록 읽기가 같이 시작돼, 첫 검색(모델 준비로 조금
+            // 느림)에서 목록이 늦게 와 검색 결과를 덮어쓰던 버그가 있었다(2026-10-17).
+            guard latestSearchRequestID == nil, !isSearchActive else { return }
+            captures = scoped
         } catch {
             errorMessage = "캡처를 불러오지 못했어요."
         }

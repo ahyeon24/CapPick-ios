@@ -16,6 +16,8 @@ struct BrowseView: View {
     @State private var editingFolder: Folder?
     @State private var reclassificationTarget: ReclassificationTarget?
     @State private var folderPendingDeletion: Folder?
+    /// 처음 나타날 때는 .task가 불러오므로 onAppear의 새로 읽기를 건너뛴다.
+    @State private var hasAppeared = false
     private let folderManagement: BrowseFolderManagement?
     private let captureStore: any CaptureStoring
     private let folderStore: any FolderStoring
@@ -139,6 +141,10 @@ struct BrowseView: View {
             // 자식을 pop해 돌아오는 건 이 뷰를 다시 만들지 않아서 .task가 재실행되지 않는다.
             // 검색 결과를 보여주는 중이면 load()로 덮어쓰지 않는다 — "뒤로 가면 검색어·폴더·
             // 스크롤 위치 복원"(화면설계서 §2)을 지킨다.
+            guard hasAppeared else {
+                hasAppeared = true
+                return
+            }
             guard !viewModel.isSearchActive else { return }
             Task { await viewModel.load() }
         }
