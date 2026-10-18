@@ -3,14 +3,15 @@ import SwiftUI
 // 화면설계서 §9 DETAIL-01. 2026-10-17 사용자 요청으로 사진 앱 갤러리처럼 바꿨다:
 // - 사진 한 장을 화면에 맞춰 보여주고 위아래 스크롤은 없다.
 // - 옆으로 넘기면 들어온 목록(검색 결과·폴더)의 이전·다음 캡처로 넘어간다.
-// - 상단: 즐겨찾기 · ⓘ(분석 상태·소속 폴더를 아래에서 올라오는 시트로) · ···(공유, 다시 분석하기,
-//   캡픽에서 제외).
+// - 상단: 즐겨찾기 · ⓘ(분석 상태·소속 폴더를 아래에서 올라오는 시트로) · ···(공유, 폴더로 이동,
+//   다시 분석하기, 캡픽에서 제외).
 struct CaptureDetailView: View {
     private let captures: [Capture]
     private let captureStore: any CaptureStoring
     private let folderStore: any FolderStoring
     private let analysisQueueService: AnalysisQueueService
     private let thumbnailLoader: any ThumbnailLoading
+    private let sourceFolderID: String?
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedID: String
@@ -19,13 +20,16 @@ struct CaptureDetailView: View {
     @State private var isInfoPresented = false
     @State private var isShareSheetPresented = false
     @State private var isExcludeConfirmationPresented = false
+    /// 폴더로 옮긴 뒤 잠깐 보여주는 안내.
+    @State private var moveNotice: String?
 
     init(
         captures: [Capture], initialCaptureID: String, captureStore: any CaptureStoring,
         folderStore: any FolderStoring, analysisQueueService: AnalysisQueueService,
-        thumbnailLoader: any ThumbnailLoading
+        thumbnailLoader: any ThumbnailLoading, sourceFolderID: String? = nil
     ) {
         self.captures = captures
+        self.sourceFolderID = sourceFolderID
         self.captureStore = captureStore
         self.folderStore = folderStore
         self.analysisQueueService = analysisQueueService
@@ -64,6 +68,19 @@ struct CaptureDetailView: View {
         .onChange(of: currentViewModel.didExclude) { _, didExclude in
             if didExclude { dismiss() }
         }
+        .overlay(alignment: .bottom) {
+            if let moveNotice {
+                Text(moveNotice)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(AppPalette.text, in: Capsule())
+                    .padding(.bottom, 24)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: moveNotice)
         .onChange(of: selectedID) { _, _ in prefetchNeighbors() }
         .task { prefetchNeighbors() }
     }
@@ -89,6 +106,26 @@ struct CaptureDetailView: View {
             Menu {
                 Button("공유", systemImage: "square.and.arrow.up") { isShareSheetPresented = true }
                     .disabled(current.fullImage == nil)
+                SwiftUI.Menu {
+                    if current.allFolders.isEmpty {
+                        Text("만든 폴더가 없어요")
+                    }
+                    ForEach(current.allFolders) { folder in
+                        let isMember = current.folders.contains { $0.id == folder.id }
+                        Button {
+                            Task { await move(current, to: folder) }
+                        } label: {
+                            if isMember {
+                                Label(folder.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(folder.displayName)
+                            }
+                        }
+                        .disabled(isMember)
+                    }
+                } label: {
+                    Label("폴더로 이동", systemImage: "folder")
+                }
                 // pending(자동 큐가 곧 처리)·processing(진행 중)은 뺀다 — 실패했을 때뿐 아니라 이미
                 // 성공한 캡처도 원하면 다시 돌릴 수 있다(2026-09-25 사용자 결정).
                 if current.capture.searchState == .failed || current.capture.searchState == .ready {
@@ -105,6 +142,17 @@ struct CaptureDetailView: View {
             }
             .accessibilityLabel("더보기")
         }
+    }
+
+    private func move(_ model: CaptureDetailViewModel, to folder: Folder) async {
+        await model.move(to: folder)
+        guard model.errorMessage == nil else {
+            moveNotice = "폴더를 옮기지 못했어요"
+            return
+        }
+        moveNotice = "'\(folder.displayName)' 폴더로 옮겼어요"
+        try? await Task.sleep(for: .seconds(2))
+        moveNotice = nil
     }
 
     /// 지금 보는 사진의 앞뒤 한 장씩을 미리 불러 둔다 — 넘기는 순간 이미 준비돼 있게(2026-10-17).
@@ -126,7 +174,8 @@ struct CaptureDetailView: View {
         cache.model(for: capture) {
             CaptureDetailViewModel(
                 capture: capture, captureStore: captureStore, folderStore: folderStore,
-                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader)
+                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader,
+                sourceFolderID: sourceFolderID)
         }
     }
 }

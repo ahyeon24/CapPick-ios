@@ -193,7 +193,8 @@ struct BrowseView: View {
                             CaptureDetailView(
                                 captures: captures, initialCaptureID: capture.id,
                                 captureStore: captureStore, folderStore: folderStore,
-                                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader)
+                                analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader,
+                                sourceFolderID: viewModel.scope.folderID)
                         } label: {
                             CaptureThumbnailView(
                                 capture: capture,

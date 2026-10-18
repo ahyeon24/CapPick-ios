@@ -139,6 +139,52 @@ final class CaptureDetailViewModelTests: XCTestCase {
         XCTAssertEqual(jobAPIClient.submitCalls.count, 1)
     }
 
+    private func makeFolder(_ id: String, _ name: String) -> Folder {
+        Folder(id: id, displayName: name, criteriaText: nil, criteriaVersion: 1, criteriaState: .pending, membershipRevision: 0)
+    }
+
+    // 폴더 화면에서 들어왔으면 그 폴더에서만 빼고 대상 폴더로 넣는다 — 다른 소속은 그대로 둔다.
+    func testMoveFromFolderScopeRemovesOnlySourceFolder() async throws {
+        let capture = makeCapture("c1")
+        try await captureStore.save(capture)
+        for folder in [makeFolder("f1", "운세"), makeFolder("f2", "쇼핑"), makeFolder("f3", "맛집")] {
+            try await folderStore.save(folder)
+        }
+        try await folderStore.addManually(captureID: "c1", to: "f1")
+        try await folderStore.addManually(captureID: "c1", to: "f2")
+        let viewModel = CaptureDetailViewModel(
+            capture: capture, captureStore: captureStore, folderStore: folderStore,
+            analysisQueueService: try makeAnalysisQueueService(), thumbnailLoader: FakeThumbnailLoading(),
+            sourceFolderID: "f1")
+        await viewModel.load()
+
+        await viewModel.move(to: makeFolder("f3", "맛집"))
+
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertEqual(Set(viewModel.folders.map(\.id)), ["f2", "f3"])
+        // 원래 폴더에서는 직접 제거로 빠져서 자동 분류가 다시 넣지 않는다.
+        let source = try await folderStore.fetchMemberships(of: "f1")
+        XCTAssertEqual(source.first { $0.captureID == "c1" }?.state, .blocked)
+    }
+
+    // 전체·검색 화면에서 들어왔으면 지금 속한 폴더 전부에서 빼고 대상 폴더 하나로 옮긴다.
+    func testMoveWithoutSourceFolderMovesOutOfAllCurrentFolders() async throws {
+        let capture = makeCapture("c1")
+        try await captureStore.save(capture)
+        for folder in [makeFolder("f1", "운세"), makeFolder("f2", "쇼핑"), makeFolder("f3", "맛집")] {
+            try await folderStore.save(folder)
+        }
+        try await folderStore.addManually(captureID: "c1", to: "f1")
+        try await folderStore.addManually(captureID: "c1", to: "f2")
+        let viewModel = try makeViewModel(capture: capture)
+        await viewModel.load()
+        XCTAssertEqual(viewModel.allFolders.count, 3)
+
+        await viewModel.move(to: makeFolder("f3", "맛집"))
+
+        XCTAssertEqual(viewModel.folders.map(\.id), ["f3"])
+    }
+
     func testExcludeSetsDidExcludeAndPersistsExcludedAt() async throws {
         let capture = makeCapture("c1")
         try await captureStore.save(capture)

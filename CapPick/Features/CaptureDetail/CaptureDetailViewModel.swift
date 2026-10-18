@@ -7,6 +7,8 @@ import UIKit
 final class CaptureDetailViewModel {
     private(set) var capture: Capture
     private(set) var folders: [Folder] = []
+    /// ··· > 폴더로 이동 메뉴에 보여줄 사용자 폴더 전체.
+    private(set) var allFolders: [Folder] = []
     private(set) var fullImage: UIImage?
     /// 원본이 오기 전에 먼저 보여주는 작은 이미지(목록 썸네일과 같은 수준) — 넘길 때 로딩 표시
     /// 대신 흐릿한 사진이 먼저 보이게 한다(2026-10-17).
@@ -22,12 +24,17 @@ final class CaptureDetailViewModel {
     private let folderStore: any FolderStoring
     private let analysisQueueService: AnalysisQueueService
     private let thumbnailLoader: any ThumbnailLoading
+    /// 어느 폴더 화면에서 들어왔는지. 이동할 때 이 폴더에서만 뺀다 — nil(전체·미분류·검색)이면
+    /// 지금 속한 폴더 전부에서 뺀다.
+    private let sourceFolderID: String?
 
     init(
         capture: Capture, captureStore: any CaptureStoring, folderStore: any FolderStoring,
-        analysisQueueService: AnalysisQueueService, thumbnailLoader: any ThumbnailLoading
+        analysisQueueService: AnalysisQueueService, thumbnailLoader: any ThumbnailLoading,
+        sourceFolderID: String? = nil
     ) {
         self.capture = capture
+        self.sourceFolderID = sourceFolderID
         self.captureStore = captureStore
         self.folderStore = folderStore
         self.analysisQueueService = analysisQueueService
@@ -45,6 +52,7 @@ final class CaptureDetailViewModel {
                 capture = latest
             }
             folders = try await folderStore.fetchFolders(containing: capture.id)
+            allFolders = try await folderStore.fetchAll()
         } catch {
             errorMessage = "정보를 불러오지 못했어요."
         }
@@ -82,6 +90,22 @@ final class CaptureDetailViewModel {
             await load()
         } catch {
             errorMessage = "분석에 실패했어요: \(error)"
+        }
+    }
+
+    /// 다른 폴더로 옮긴다(2026-10-18 사용자 요청). 원래 폴더에서는 직접 제거(blocked + manual)로
+    /// 빼서 자동 분류가 다시 넣지 않게 하고, 대상 폴더에는 직접 추가한다. 원본 사진은 그대로다.
+    func move(to target: Folder) async {
+        errorMessage = nil
+        let sources = sourceFolderID.map { [$0] } ?? folders.map(\.id)
+        do {
+            for folderID in sources where folderID != target.id {
+                try await folderStore.removeManually(captureID: capture.id, from: folderID)
+            }
+            try await folderStore.addManually(captureID: capture.id, to: target.id)
+            folders = try await folderStore.fetchFolders(containing: capture.id)
+        } catch {
+            errorMessage = "폴더를 옮기지 못했어요."
         }
     }
 
