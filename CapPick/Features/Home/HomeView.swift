@@ -12,7 +12,7 @@ struct HomeView: View {
     private let analysisQueueService: AnalysisQueueService
     private let searchService: SearchService
     private let reclassificationStore: any ReclassificationStoring
-    private let reclassificationService: ReclassificationService
+    private let reclassificationCoordinator: ReclassificationCoordinator
     private let usageService: UsageService
     private let appDataDeletionService: AppDataDeletionService
 
@@ -38,7 +38,7 @@ struct HomeView: View {
         viewModel: HomeViewModel, captureStore: any CaptureStoring, folderStore: any FolderStoring,
         thumbnailLoader: any ThumbnailLoading, analysisQueueService: AnalysisQueueService,
         searchService: SearchService, reclassificationStore: any ReclassificationStoring,
-        reclassificationService: ReclassificationService, usageService: UsageService,
+        reclassificationCoordinator: ReclassificationCoordinator, usageService: UsageService,
         appDataDeletionService: AppDataDeletionService
     ) {
         _viewModel = State(initialValue: viewModel)
@@ -48,7 +48,7 @@ struct HomeView: View {
         self.analysisQueueService = analysisQueueService
         self.searchService = searchService
         self.reclassificationStore = reclassificationStore
-        self.reclassificationService = reclassificationService
+        self.reclassificationCoordinator = reclassificationCoordinator
         self.usageService = usageService
         self.appDataDeletionService = appDataDeletionService
     }
@@ -95,8 +95,10 @@ struct HomeView: View {
                     mode: .create, folderStore: folderStore,
                     onSaved: { folder, applyToExisting in
                         Task { await viewModel.refresh() }
+                        // 창과 상관없이 끝까지 돌고, 끝나면 확인 없이 바로 폴더에 넣는다
+                        // (ReclassificationCoordinator). 진행 상황은 폴더 카드에 보인다.
                         if applyToExisting {
-                            reclassificationTarget = ReclassificationTarget(folder: folder, mode: .initialApply)
+                            reclassificationCoordinator.start(folder: folder, mode: .initialApply)
                         }
                     }))
             }
@@ -126,11 +128,14 @@ struct HomeView: View {
             .sheet(item: $reclassificationTarget) { target in
                 NavigationStack {
                     ReclassificationView(viewModel: ReclassificationViewModel(
-                        folder: target.folder, mode: target.mode, reclassificationService: reclassificationService,
+                        folder: target.folder, mode: target.mode, coordinator: reclassificationCoordinator,
                         reclassificationStore: reclassificationStore, captureStore: captureStore,
                         thumbnailLoader: thumbnailLoader))
                 }
                 .onDisappear { Task { await viewModel.refresh() } }
+            }
+            .onChange(of: reclassificationCoordinator.completedCount) { _, _ in
+                Task { await viewModel.refresh() }
             }
             .navigationDestination(item: $pendingSearch) { pending in
                 BrowseView(
@@ -303,6 +308,7 @@ struct HomeView: View {
                     title: folder.displayName, count: viewModel.count(for: folder),
                     photoAssetID: viewModel.cardPreviews.byFolder[folder.id],
                     thumbnailLoader: thumbnailLoader,
+                    status: reclassificationStatus(for: folder),
                     destination: { browseView(scope: .folder(folder)) },
                     menu: { folderMenu(folder) })
             }
@@ -319,6 +325,20 @@ struct HomeView: View {
         Button("폴더 삭제", systemImage: "trash", role: .destructive) { folderPendingDeletion = folder }
     }
 
+    /// 기존 캡처 분류가 진행 중이거나 확인을 기다리면 폴더 카드에 한 줄로 알린다.
+    private func reclassificationStatus(for folder: Folder) -> String? {
+        switch reclassificationCoordinator.job(for: folder.id)?.phase {
+        case .running(let done, let total):
+            total > 0 ? "분류 중 \(done)/\(total)" : "분류 준비 중"
+        case .awaitingConfirmation:
+            "재분류 결과 확인 대기"
+        case .failed:
+            "분류 실패"
+        case .finished, .none:
+            nil
+        }
+    }
+
     private func browseView(scope: BrowseScope) -> some View {
         BrowseView(
             viewModel: BrowseViewModel(
@@ -328,7 +348,7 @@ struct HomeView: View {
             analysisQueueService: analysisQueueService, thumbnailLoader: thumbnailLoader,
             // 사용자 폴더 화면에도 홈 카드와 같은 ··· 관리 메뉴를 둔다(2026-10-16 사용자 결정).
             folderManagement: scope.folderID == nil ? nil : BrowseFolderManagement(
-                reclassificationService: reclassificationService, reclassificationStore: reclassificationStore)
+                reclassificationCoordinator: reclassificationCoordinator, reclassificationStore: reclassificationStore)
         )
         .onDisappear { Task { await viewModel.refresh() } }
     }

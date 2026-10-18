@@ -6,7 +6,7 @@ import SwiftUI
 // (항상 관련도순 또는 최근순).
 /// 사용자 폴더 화면의 ··· 관리 메뉴에 필요한 것. 넘기지 않으면(전체·미분류·검색) 메뉴가 없다.
 struct BrowseFolderManagement {
-    let reclassificationService: ReclassificationService
+    let reclassificationCoordinator: ReclassificationCoordinator
     let reclassificationStore: any ReclassificationStoring
 }
 
@@ -100,7 +100,7 @@ struct BrowseView: View {
                 NavigationStack {
                     ReclassificationView(viewModel: ReclassificationViewModel(
                         folder: target.folder, mode: target.mode,
-                        reclassificationService: folderManagement.reclassificationService,
+                        coordinator: folderManagement.reclassificationCoordinator,
                         reclassificationStore: folderManagement.reclassificationStore,
                         captureStore: captureStore, thumbnailLoader: thumbnailLoader))
                 }

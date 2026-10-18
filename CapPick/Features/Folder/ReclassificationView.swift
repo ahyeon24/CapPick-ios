@@ -1,7 +1,8 @@
 import SwiftUI
 
 // 화면설계서 §11 RECLASS-01 재분류 확인. 변경된 기준, 자동 추가 예정, 자동 제거 예정을 보여주고
-// 사용자 확인 후에만 실제 소속에 반영한다 — 확인 전까지는 아무 것도 안 바뀐다.
+// 사용자 확인 후에만 실제 소속에 반영한다 — 확인 전까지는 아무 것도 안 바뀐다. 계산은
+// ReclassificationCoordinator가 하므로 이 화면을 닫아도 멈추지 않는다.
 struct ReclassificationView: View {
     @State private var viewModel: ReclassificationViewModel
     @Environment(\.dismiss) private var dismiss
@@ -22,7 +23,7 @@ struct ReclassificationView: View {
                 Section {
                     HStack {
                         Spacer()
-                        ProgressView("판정 중이에요…")
+                        ProgressView(viewModel.progressText.map { "판정 중이에요… \($0)" } ?? "판정 중이에요…")
                         Spacer()
                     }
                 }
@@ -53,7 +54,14 @@ struct ReclassificationView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("닫기") { Task { await viewModel.discard() } }
+                // 계산 중에 닫으면 계속 돌고(나중에 다시 열면 결과가 보인다), 결과가 나온 뒤 닫으면 버린다.
+                Button(viewModel.isLoading ? "닫기" : "적용 안 함") {
+                    if viewModel.isLoading {
+                        dismiss()
+                    } else {
+                        Task { await viewModel.discard() }
+                    }
+                }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button {
@@ -71,7 +79,8 @@ struct ReclassificationView: View {
         .onChange(of: viewModel.didFinish) { _, didFinish in
             if didFinish { dismiss() }
         }
-        .task { await viewModel.loadPreview() }
+        .onAppear { viewModel.start() }
+        .task(id: viewModel.phase) { await viewModel.phaseChanged() }
     }
 
     private var headline: String {
@@ -79,7 +88,7 @@ struct ReclassificationView: View {
         case .initialApply:
             "\"\(viewModel.folder.displayName)\" 기준에 맞는 기존 캡처를 찾고 있어요. 사용자 직접 추가·제거 기록은 그대로 유지돼요."
         case .reclassify:
-            "바뀐 분류 기준으로 기존 캡처를 다시 판단해요. 사용자 직접 추가·제거 기록은 그대로 유지돼요."
+            "바뀐 분류 기준으로 기존 캡처를 다시 판단해요. 창을 닫아도 계속 판단하고, 다시 열면 결과를 확인할 수 있어요. 사용자 직접 추가·제거 기록은 그대로 유지돼요."
         }
     }
 }

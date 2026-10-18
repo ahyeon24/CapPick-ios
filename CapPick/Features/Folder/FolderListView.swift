@@ -9,7 +9,7 @@ struct FolderListView: View {
     private let analysisQueueService: AnalysisQueueService
     private let searchService: SearchService
     private let reclassificationStore: any ReclassificationStoring
-    private let reclassificationService: ReclassificationService
+    private let reclassificationCoordinator: ReclassificationCoordinator
 
     @State private var isCreatingFolder = false
     @State private var editingFolder: Folder?
@@ -20,7 +20,7 @@ struct FolderListView: View {
         captureStore: any CaptureStoring, folderStore: any FolderStoring,
         thumbnailLoader: any ThumbnailLoading, analysisQueueService: AnalysisQueueService,
         searchService: SearchService, reclassificationStore: any ReclassificationStoring,
-        reclassificationService: ReclassificationService
+        reclassificationCoordinator: ReclassificationCoordinator
     ) {
         _viewModel = State(initialValue: FolderListViewModel(folderStore: folderStore, captureStore: captureStore))
         self.captureStore = captureStore
@@ -29,7 +29,7 @@ struct FolderListView: View {
         self.analysisQueueService = analysisQueueService
         self.searchService = searchService
         self.reclassificationStore = reclassificationStore
-        self.reclassificationService = reclassificationService
+        self.reclassificationCoordinator = reclassificationCoordinator
     }
 
     var body: some View {
@@ -77,7 +77,7 @@ struct FolderListView: View {
                 onSaved: { folder, applyToExisting in
                     Task { await viewModel.load() }
                     if applyToExisting {
-                        reclassificationTarget = ReclassificationTarget(folder: folder, mode: .initialApply)
+                        reclassificationCoordinator.start(folder: folder, mode: .initialApply)
                     }
                 }))
         }
@@ -89,7 +89,7 @@ struct FolderListView: View {
         .sheet(item: $reclassificationTarget) { target in
             NavigationStack {
                 ReclassificationView(viewModel: ReclassificationViewModel(
-                    folder: target.folder, mode: target.mode, reclassificationService: reclassificationService,
+                    folder: target.folder, mode: target.mode, coordinator: reclassificationCoordinator,
                     reclassificationStore: reclassificationStore, captureStore: captureStore,
                     thumbnailLoader: thumbnailLoader))
             }

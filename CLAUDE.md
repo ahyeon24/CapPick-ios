@@ -60,6 +60,18 @@ failed가 아니라 **pending으로 되돌리고**(`CaptureStoring.markSearchPen
 10분이 지나 있어야 한다 — 백그라운드에서 스스로 재개하지는 않는다. 시뮬레이터에서 한도를 낮춰
 실제로 멈추고 문구가 뜨는 것까지 확인했다. 테스트 189개 통과.
 
+**재분류를 화면 밖에서 끝까지 (2026-10-18, 사용자 제보)**: 전에는 판정이 재분류 시트의 `.task`에
+묶여 있어 시트를 내리면 멈췄고, 미리보기를 확인해야만 반영돼서 새로 만든 "뷰티" 폴더가 계속 비어
+있었다. 시트를 쓸어 닫으면 실행이 previewing으로 남아 같은 폴더 재분류가 영영 alreadyInProgress로
+막히는 버그도 있었다. 이제 `Services/ReclassificationCoordinator`(@MainActor @Observable, RootView가
+한 번 만든다)가 앱 수명 동안 돌린다 — 새 폴더의 "기존 캡처에도 적용"은 확인 없이 바로 반영하고,
+"기존 캡처 재분류"는 결과를 남겨 두고 확인을 기다린다(시트를 닫아도 계산은 계속, 다시 열면 결과).
+진행 상황은 홈 폴더 카드에 "N장 · 분류 중 12/86". 시작할 때마다 이전에 남은 previewing 실행을
+정리한다(`cancelStaleRun`). 속도: 판정 방식은 그대로(한 장씩)이고 4개씩 동시에 보낸다
+(`maxConcurrentEvaluations`). 묶음 판정은 2026-10-18 실험(`gemini-eval/reclass_batch.py`·
+`reclass_hybrid.py`)에서 오분류(맛집 폴더에 옷가게)가 나와 보류. 앱이 백그라운드로 가면 iOS가 멈출 수
+있고, 그때 실패한 판정은 건너뛴다(알려진 한계).
+
 **DETAIL-01을 갤러리처럼 (2026-10-17, 사용자 요청)**: `CaptureDetailView`가 캡처 한 장이 아니라
 들어온 목록 전체(`captures` + `initialCaptureID`)를 받아 `TabView(.page)`로 옆으로 넘겨 본다(사진 앱
 갤러리처럼, 검색 결과·폴더의 순서 그대로). 사진은 화면에 맞추고 위아래 스크롤은 없앴다(핀치 확대는

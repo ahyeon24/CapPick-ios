@@ -10,6 +10,15 @@ struct RootView: View {
     }
 
     @State private var route: Route = .loading
+    /// 재분류를 화면이 아니라 앱 수명 동안 돌린다 — 화면을 닫아도 멈추지 않게 여기서 한 번만 만든다.
+    @State private var reclassificationCoordinator: ReclassificationCoordinator
+
+    init(environment: AppEnvironment) {
+        self.environment = environment
+        _reclassificationCoordinator = State(initialValue: ReclassificationCoordinator(
+            service: environment.reclassificationService,
+            reclassificationStore: environment.reclassificationStore))
+    }
 
     var body: some View {
         switch route {
@@ -46,7 +55,7 @@ struct RootView: View {
                 analysisQueueService: environment.analysisQueueService,
                 searchService: environment.searchService,
                 reclassificationStore: environment.reclassificationStore,
-                reclassificationService: environment.reclassificationService,
+                reclassificationCoordinator: reclassificationCoordinator,
                 usageService: environment.usageService,
                 appDataDeletionService: environment.appDataDeletionService
             )

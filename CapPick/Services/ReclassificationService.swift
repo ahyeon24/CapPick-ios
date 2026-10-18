@@ -7,7 +7,8 @@ enum ReclassificationError: Error, Equatable {
 }
 
 /// RECLASS-01. 폴더 하나의 기준으로 이미 분석된 캡처 전체를 다시 판정해서 추가·제거 예정 목록을
-/// 만들고(preview), 사용자가 확인한 뒤에야 실제 소속에 반영한다(apply). content_analysis는 다시
+/// 만들고(preview), 반영한다(apply). "기존 캡처 재분류"는 사용자가 확인한 뒤에, 새 폴더의 "기존
+/// 캡처에도 적용"은 확인 없이 바로 반영한다(ReclassificationCoordinator 참고). content_analysis는 다시
 /// 안 돌린다(기능명세서 §3.3.2: "기존 검색·분석 정보를 재사용한다") — ClassificationService의
 /// 판정 로직만 폴더 하나로 좁혀 재사용한다.
 ///
@@ -32,7 +33,18 @@ actor ReclassificationService {
         self.classificationService = classificationService
     }
 
-    func preview(folderID: String, mode: ReclassificationMode) async throws -> ReclassificationRun {
+    /// 한 번에 동시에 보내는 판정 요청 수. 2026-10-18 실험(gemini-eval/reclass_batch.py)에서 한 장씩
+    /// 순서대로 보내면 캡처마다 접수·폴링 대기(최소 2초)가 쌓여 100장에 4~5분이 걸렸다. 판정 방식은
+    /// 그대로 두고(정확도 유지) 동시에 보내는 수만 늘린다. 더 늘리면 Gemini 분당 요청 한도(429)에
+    /// 더 자주 걸린다.
+    static let maxConcurrentEvaluations = 4
+
+    /// onProgress: (판정 끝난 캡처 수, 전체 후보 수). 화면이 아니라 ReclassificationCoordinator가
+    /// 받아서 홈 폴더 카드 등에 보여준다.
+    func preview(
+        folderID: String, mode: ReclassificationMode,
+        onProgress: (@Sendable (Int, Int) async -> Void)? = nil
+    ) async throws -> ReclassificationRun {
         guard try await reclassificationStore.activeRun(folderID: folderID) == nil else {
             throw ReclassificationError.alreadyInProgress
         }
@@ -51,13 +63,32 @@ actor ReclassificationService {
         let membershipByCapture = Dictionary(
             uniqueKeysWithValues: try await folderStore.fetchMemberships(of: folderID).map { ($0.captureID, $0) })
 
-        var items: [ReclassificationItem] = []
-        for capture in candidates {
-            // 이 캡처 하나의 판정이 실패해도(예: Gemini 일시적 과부하) 전체를 포기하지 않고 다음
-            // 캡처로 넘어간다 — AnalysisQueueService의 "실패해도 다음으로" 패턴과 같은 이유.
-            guard let decision = try? await classificationService.evaluateSingleFolder(capture: capture, folder: folder) else {
-                continue
+        await onProgress?(0, candidates.count)
+        // 캡처마다 판정 하나씩 — 최대 maxConcurrentEvaluations개를 동시에 보낸다. 하나가 실패해도
+        // (예: Gemini 일시적 과부하) 전체를 포기하지 않고 그 캡처만 건너뛴다 — AnalysisQueueService의
+        // "실패해도 다음으로" 패턴과 같은 이유.
+        var decisions: [(Capture, ClassificationDecisionDTO)] = []
+        try await withThrowingTaskGroup(of: (Capture, ClassificationDecisionDTO?).self) { group in
+            var iterator = candidates.makeIterator()
+            func addNext() {
+                guard let capture = iterator.next() else { return }
+                group.addTask { [classificationService] in
+                    (capture, try? await classificationService.evaluateSingleFolder(capture: capture, folder: folder))
+                }
             }
+            for _ in 0..<Self.maxConcurrentEvaluations { addNext() }
+            var done = 0
+            while let (capture, decision) = try await group.next() {
+                try Task.checkCancellation()
+                done += 1
+                if let decision { decisions.append((capture, decision)) }
+                await onProgress?(done, candidates.count)
+                addNext()
+            }
+        }
+
+        var items: [ReclassificationItem] = []
+        for (capture, decision) in decisions {
             let existing = membershipByCapture[capture.id]
 
             switch decision.decision {
@@ -114,5 +145,14 @@ actor ReclassificationService {
     /// 유지한다"). 계산된 항목은 버려지고, 이 폴더는 다시 재분류를 시작할 수 있다.
     func cancel(runID: String) async throws {
         try await reclassificationStore.setRunState(runID, state: ReclassificationRunState.cancelled)
+    }
+
+    /// 앱이 중간에 꺼졌거나 계산 도중 중단돼 previewing으로 남은 실행을 정리한다. 그대로 두면 이 폴더의
+    /// 재분류가 영영 alreadyInProgress로 막힌다(2026-10-18 실제로 겪음). 지금 계산 중인 실행이 없을
+    /// 때만 불러야 한다 — ReclassificationCoordinator가 그걸 안다.
+    func cancelStaleRun(folderID: String) async throws {
+        if let run = try await reclassificationStore.activeRun(folderID: folderID) {
+            try await reclassificationStore.setRunState(run.id, state: ReclassificationRunState.cancelled)
+        }
     }
 }

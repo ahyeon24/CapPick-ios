@@ -8,6 +8,8 @@ struct FolderCardView<Destination: View, Menu: View>: View {
     let count: Int
     let photoAssetID: String?
     let thumbnailLoader: any ThumbnailLoading
+    /// 기존 캡처 분류 진행 상황 같은 한 줄 안내(예: "분류 중 12/86"). nil이면 장수만 보인다.
+    var status: String? = nil
     @ViewBuilder let destination: () -> Destination
     /// nil이면 ··· 버튼을 안 보여준다.
     let menu: (() -> Menu)?
@@ -27,7 +29,7 @@ struct FolderCardView<Destination: View, Menu: View>: View {
                             .tracking(-0.25)
                             .foregroundStyle(AppPalette.text)
                             .lineLimit(1)
-                        Text("\(count.formatted())장")
+                        Text(status.map { "\(count.formatted())장 · \($0)" } ?? "\(count.formatted())장")
                             .font(.system(size: 12))
                             .tracking(-0.15)
                             .foregroundStyle(AppPalette.secondary)

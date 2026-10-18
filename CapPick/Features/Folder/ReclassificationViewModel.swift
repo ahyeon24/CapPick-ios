@@ -8,8 +8,9 @@ struct ReclassificationTarget: Identifiable {
     var id: String { folder.id }
 }
 
-// 화면설계서 §11 RECLASS-01. FolderEditView("기존 캡처에도 적용")와 FolderListView("재분류"
-// 스와이프 액션) 두 진입점이 같은 화면·뷰모델을 쓴다 — mode로만 문구를 구분한다.
+// 화면설계서 §11 RECLASS-01 "기존 캡처 재분류" 확인 화면의 뷰모델. 계산 자체는
+// ReclassificationCoordinator가 앱 수명 동안 돌린다 — 이 화면은 진행 상황과 결과를 보여주고 확인·
+// 취소만 전달한다. 화면을 닫아도 계산은 계속되고, 다시 열면 같은 진행 상황·결과가 보인다.
 @MainActor @Observable
 final class ReclassificationViewModel {
     struct PreviewItem: Identifiable {
@@ -24,83 +25,90 @@ final class ReclassificationViewModel {
 
     private(set) var toAdd: [PreviewItem] = []
     private(set) var toRemove: [PreviewItem] = []
-    private(set) var isLoading = false
     private(set) var isApplying = false
-    private(set) var errorMessage: String?
-    /// true가 되면 View가 화면을 닫는다 — 적용·취소·"바뀔 것 없음" 세 경우 모두 여기로 온다.
+    /// true가 되면 View가 화면을 닫는다 — 적용·취소·"바뀔 것 없음" 모두 여기로 온다.
     private(set) var didFinish = false
+    private var loadedRunID: String?
 
-    private var runID: String?
-    private let reclassificationService: ReclassificationService
+    private let coordinator: ReclassificationCoordinator
     private let reclassificationStore: any ReclassificationStoring
     private let captureStore: any CaptureStoring
 
     init(
-        folder: Folder, mode: ReclassificationMode, reclassificationService: ReclassificationService,
+        folder: Folder, mode: ReclassificationMode, coordinator: ReclassificationCoordinator,
         reclassificationStore: any ReclassificationStoring, captureStore: any CaptureStoring,
         thumbnailLoader: any ThumbnailLoading
     ) {
         self.folder = folder
         self.mode = mode
-        self.reclassificationService = reclassificationService
+        self.coordinator = coordinator
         self.reclassificationStore = reclassificationStore
         self.captureStore = captureStore
         self.thumbnailLoader = thumbnailLoader
     }
 
-    /// 후보 캡처 수만큼 실제 Gemini 호출이 나간다(ReclassificationService 주석 참고) — 이 화면에
-    /// 들어오는 것 자체(폴더 메뉴의 "재분류", 생성 시트의 "기존 캡처에도 적용")가 이미 사용자의
-    /// 명시적인 트리거라 별도 확인 알럿은 두지 않는다. 다른 AI 트리거 액션들(검색·재시도)과 같은 패턴.
-    func loadPreview() async {
-        isLoading = true
-        defer { isLoading = false }
-        errorMessage = nil
-        do {
-            let run = try await reclassificationService.preview(folderID: folder.id, mode: mode)
-            runID = run.id
-            let items = try await reclassificationStore.fetchItems(runID: run.id)
-            guard !items.isEmpty else {
-                didFinish = true
-                return
-            }
+    var phase: ReclassificationCoordinator.Phase? { coordinator.job(for: folder.id)?.phase }
 
-            var add: [PreviewItem] = []
-            var remove: [PreviewItem] = []
-            for item in items {
-                guard let capture = try await captureStore.fetchCapture(id: item.captureID) else { continue }
-                let previewItem = PreviewItem(capture: capture, evidence: item.evidence)
-                switch item.action {
-                case .add: add.append(previewItem)
-                case .remove: remove.append(previewItem)
-                }
-            }
-            toAdd = add
-            toRemove = remove
-        } catch ReclassificationError.alreadyInProgress {
-            errorMessage = "이미 진행 중인 재분류가 있어요. 잠시 후 다시 시도해주세요."
-        } catch {
-            errorMessage = "재분류 판정에 실패했어요."
+    var isLoading: Bool {
+        if case .running = phase { return true }
+        return false
+    }
+
+    var progressText: String? {
+        guard case .running(let done, let total) = phase, total > 0 else { return nil }
+        return "\(done) / \(total)장 판정"
+    }
+
+    var errorMessage: String? {
+        if case .failed(let message) = phase { return message }
+        return nil
+    }
+
+    /// 화면이 나타날 때 — 진행 중이거나 확인을 기다리는 실행이 있으면 그걸 이어서 보여준다.
+    func start() {
+        coordinator.start(folder: folder, mode: mode)
+    }
+
+    /// phase가 바뀔 때마다 부른다. 결과가 나오면 미리보기 목록을 채우고, 끝났으면 화면을 닫는다.
+    func phaseChanged() async {
+        switch phase {
+        case .awaitingConfirmation(let runID):
+            guard loadedRunID != runID else { return }
+            loadedRunID = runID
+            await loadItems(runID: runID)
+        case .finished:
+            didFinish = true
+        case .running, .failed, .none:
+            break
         }
     }
 
     func confirm() async {
-        guard let runID, !isApplying else { return }
+        guard !isApplying else { return }
         isApplying = true
         defer { isApplying = false }
-        errorMessage = nil
-        do {
-            try await reclassificationService.apply(runID: runID)
-            didFinish = true
-        } catch {
-            errorMessage = "적용하지 못했어요."
-        }
+        await coordinator.confirm(folderID: folder.id)
     }
 
-    /// 확인 없이 닫을 때 — 기존 소속을 그대로 유지한다.
+    /// 결과를 적용하지 않고 버린다 — 기존 소속을 그대로 유지한다.
     func discard() async {
-        if let runID {
-            try? await reclassificationService.cancel(runID: runID)
-        }
+        await coordinator.discard(folderID: folder.id)
         didFinish = true
+    }
+
+    private func loadItems(runID: String) async {
+        guard let items = try? await reclassificationStore.fetchItems(runID: runID) else { return }
+        var add: [PreviewItem] = []
+        var remove: [PreviewItem] = []
+        for item in items {
+            guard let capture = try? await captureStore.fetchCapture(id: item.captureID) else { continue }
+            let previewItem = PreviewItem(capture: capture, evidence: item.evidence)
+            switch item.action {
+            case .add: add.append(previewItem)
+            case .remove: remove.append(previewItem)
+            }
+        }
+        toAdd = add
+        toRemove = remove
     }
 }

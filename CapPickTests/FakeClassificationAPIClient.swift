@@ -12,24 +12,33 @@ final class FakeClassificationAPIClient: ClassificationAPIClient, @unchecked Sen
         observedEvidence: [String], folders: [ClassificationFolderInput], idempotencyKey: String
     )] = []
     private var statusCallCountByJobId: [String: Int] = [:]
+    // 재분류가 판정을 여러 개 동시에 보내므로 기록·소비를 잠근다.
+    private let lock = NSLock()
 
     func submitClassification(
         clientReference: String, analysisRevision: Int, ocrText: String, observedEvidence: [String],
         folders: [ClassificationFolderInput], credential: String, idempotencyKey: String
     ) async throws -> JobSubmitted {
-        submitCalls.append((clientReference, analysisRevision, ocrText, observedEvidence, folders, idempotencyKey))
-        guard let result = submitResultsByReference[clientReference] else {
+        let result: Result<JobSubmitted, Error>? = lock.withLock {
+            submitCalls.append((clientReference, analysisRevision, ocrText, observedEvidence, folders, idempotencyKey))
+            return submitResultsByReference[clientReference]
+        }
+        guard let result else {
             fatalError("no stubbed submit result for \(clientReference)")
         }
         return try result.get()
     }
 
     func fetchClassificationStatus(jobId: String, credential: String) async throws -> ClassificationJobStatusResult {
-        guard let results = statusResultsByJobId[jobId] else {
+        let next: Result<ClassificationJobStatusResult, Error>? = lock.withLock {
+            guard let results = statusResultsByJobId[jobId] else { return nil }
+            let index = statusCallCountByJobId[jobId, default: 0]
+            statusCallCountByJobId[jobId] = index + 1
+            return results[min(index, results.count - 1)]
+        }
+        guard let next else {
             fatalError("no stubbed status results for \(jobId)")
         }
-        let index = statusCallCountByJobId[jobId, default: 0]
-        statusCallCountByJobId[jobId] = index + 1
-        return try results[min(index, results.count - 1)].get()
+        return try next.get()
     }
 }
