@@ -292,16 +292,16 @@ struct HomeView: View {
         .padding(.bottom, 17)
         LazyVGrid(columns: cardColumns, alignment: .leading, spacing: 24) {
             FolderCardView(
-                title: "전체", count: total, photoAssetIDs: viewModel.cardPreviews.all,
+                title: "전체", count: total, photoAssetID: viewModel.cardPreviews.all,
                 thumbnailLoader: thumbnailLoader) { browseView(scope: .all) }
             FolderCardView(
                 title: "미분류", count: viewModel.unclassifiedCount,
-                photoAssetIDs: viewModel.cardPreviews.unclassified,
+                photoAssetID: viewModel.cardPreviews.unclassified,
                 thumbnailLoader: thumbnailLoader) { browseView(scope: .unclassified) }
             ForEach(viewModel.folders) { folder in
                 FolderCardView(
                     title: folder.displayName, count: viewModel.count(for: folder),
-                    photoAssetIDs: viewModel.cardPreviews.byFolder[folder.id] ?? [],
+                    photoAssetID: viewModel.cardPreviews.byFolder[folder.id],
                     thumbnailLoader: thumbnailLoader,
                     destination: { browseView(scope: .folder(folder)) },
                     menu: { folderMenu(folder) })

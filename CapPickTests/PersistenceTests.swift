@@ -268,7 +268,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertTrue(stale.isEmpty)
     }
 
-    func testFetchFolderCardPreviewsReturnsRecentAssetsPerScope() async throws {
+    func testFetchFolderCardPreviewsUsesNewestVisibleCaptureForEveryScope() async throws {
         let folderStore = GRDBFolderStore(database: database)
         try await folderStore.save(Folder(
             id: "f1", displayName: "폴더", criteriaText: nil, criteriaVersion: 1,
@@ -279,15 +279,16 @@ final class PersistenceTests: XCTestCase {
             try await captures.save(capture)
         }
         try await captures.save(makeCapture("hidden", capturedAt: 5_000, excluded: true, searchState: .ready))
-        for id in ["c2", "c3", "c4"] {
+        // 들어간 순서와 상관없이 그 폴더의 가장 최근 캡처(c4)가 대표 사진이다.
+        for id in ["c3", "c2", "c4"] {
             try await folderStore.addManually(captureID: id, to: "f1")
         }
 
-        let previews = try await captures.fetchFolderCardPreviews(limit: 2)
+        let previews = try await captures.fetchFolderCardPreviews()
 
-        XCTAssertEqual(previews.all, ["asset-c4", "asset-c3"], "제외된 캡처는 빠지고 최근 것부터")
-        XCTAssertEqual(previews.unclassified, ["asset-c1"])
-        XCTAssertEqual(previews.byFolder["f1"], ["asset-c4", "asset-c3"])
+        XCTAssertEqual(previews.all, "asset-c4", "전체는 제외된 캡처를 빼고 가장 최근 것")
+        XCTAssertEqual(previews.unclassified, "asset-c1")
+        XCTAssertEqual(previews.byFolder["f1"], "asset-c4")
     }
 
     func testFetchSearchCandidatesFiltersByFolderScope() async throws {

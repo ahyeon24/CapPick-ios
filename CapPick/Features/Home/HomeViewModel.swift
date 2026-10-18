@@ -12,7 +12,7 @@ final class HomeViewModel {
     private(set) var analysisPauseMessage: String?
     private(set) var folders: [Folder] = []
     private(set) var unclassifiedCount = 0
-    /// 폴더 카드에 겹쳐 보여줄 최근 캡처(카드당 최대 3장).
+    /// 폴더 카드 썸네일(카드당 한 장, 그 범위의 가장 최근 캡처).
     private(set) var cardPreviews = FolderCardPreviews()
     private var folderCounts: [String: Int] = [:]
 
@@ -56,7 +56,7 @@ final class HomeViewModel {
             folders = try await folderStore.fetchAll()
             folderCounts = try await captureStore.fetchFolderCaptureCounts()
             unclassifiedCount = try await captureStore.unclassifiedCount()
-            cardPreviews = try await captureStore.fetchFolderCardPreviews(limit: 3)
+            cardPreviews = try await captureStore.fetchFolderCardPreviews()
         } catch {
             errorMessage = "스크린샷을 확인하지 못했어요."
         }

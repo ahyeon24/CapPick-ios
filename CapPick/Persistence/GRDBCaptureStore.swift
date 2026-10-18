@@ -230,13 +230,13 @@ struct GRDBCaptureStore: CaptureStoring {
         }
     }
 
-    func fetchFolderCardPreviews(limit: Int) async throws -> FolderCardPreviews {
+    func fetchFolderCardPreviews() async throws -> FolderCardPreviews {
         try await database.dbWriter.read { db in
-            let all = try String.fetchAll(db, sql: """
+            let all = try String.fetchOne(db, sql: """
                 SELECT photoAssetID FROM capture WHERE \(Self.visible)
-                ORDER BY capturedAt DESC LIMIT ?
-                """, arguments: [limit])
-            let unclassified = try String.fetchAll(db, sql: """
+                ORDER BY capturedAt DESC LIMIT 1
+                """)
+            let unclassified = try String.fetchOne(db, sql: """
                 SELECT photoAssetID FROM capture
                 WHERE \(Self.visible)
                   AND capture.searchState = 'ready'
@@ -245,9 +245,9 @@ struct GRDBCaptureStore: CaptureStoring {
                     SELECT 1 FROM folderCapture
                     WHERE folderCapture.captureID = capture.id AND folderCapture.state = 'present'
                   )
-                ORDER BY capturedAt DESC LIMIT ?
-                """, arguments: [limit])
-            // 폴더마다 최근 limit개 — 폴더 수만큼 쿼리를 날리지 않게 창 함수로 한 번에 자른다.
+                ORDER BY capturedAt DESC LIMIT 1
+                """)
+            // 폴더마다 가장 최근 캡처 하나 — 폴더 수만큼 쿼리를 날리지 않게 창 함수로 한 번에 자른다.
             let rows = try Row.fetchAll(db, sql: """
                 SELECT folderID, photoAssetID FROM (
                   SELECT folderCapture.folderID AS folderID, capture.photoAssetID AS photoAssetID,
@@ -256,14 +256,12 @@ struct GRDBCaptureStore: CaptureStoring {
                   JOIN capture ON capture.id = folderCapture.captureID
                   WHERE folderCapture.state = 'present' AND \(Self.visible)
                 )
-                WHERE rank <= ?
-                ORDER BY folderID, rank
-                """, arguments: [limit])
-            var byFolder: [String: [String]] = [:]
+                WHERE rank = 1
+                """)
+            var byFolder: [String: String] = [:]
             for row in rows {
                 let folderID: String = row["folderID"]
-                let photoAssetID: String = row["photoAssetID"]
-                byFolder[folderID, default: []].append(photoAssetID)
+                byFolder[folderID] = row["photoAssetID"]
             }
             return FolderCardPreviews(all: all, unclassified: unclassified, byFolder: byFolder)
         }

@@ -66,9 +66,10 @@ protocol CaptureStoring: Sendable {
     /// (호출하는 쪽이 없는 키를 0으로 취급).
     func fetchFolderCaptureCounts() async throws -> [String: Int]
 
-    /// HOME-01 폴더 카드 썸네일용 — 전체·미분류·폴더별로 최근 캡처의 사진 ID를 최대 limit개씩.
-    /// 각 범위의 규칙은 fetchAll()/fetchUnclassified()/fetch(in:)와 같다(보이는 캡처만, 최근순).
-    func fetchFolderCardPreviews(limit: Int) async throws -> FolderCardPreviews
+    /// HOME-01 폴더 카드 썸네일 — 카드당 사진 한 장, 전체·미분류·사용자 폴더 모두 그 범위의 가장
+    /// 최근 캡처(목록 맨 위)다(2026-10-17 사용자 결정 — "처음 들어간 캡처로 고정"도 검토했다가 이걸로).
+    /// 보이는(접근 가능·제외 안 됨) 캡처만.
+    func fetchFolderCardPreviews() async throws -> FolderCardPreviews
 
     /// id로 캡처 하나. DETAIL-01이 목록에서 넘겨받은 값 대신 최신 상태로 다시 읽을 때 쓴다.
     func fetchCapture(id: String) async throws -> Capture?
@@ -118,7 +119,7 @@ struct StaleSearchText: Equatable, Sendable {
 }
 
 struct FolderCardPreviews: Equatable, Sendable {
-    var all: [String] = []
-    var unclassified: [String] = []
-    var byFolder: [String: [String]] = [:]
+    var all: String?
+    var unclassified: String?
+    var byFolder: [String: String] = [:]
 }
