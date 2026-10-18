@@ -28,7 +28,7 @@ enum AnalysisPauseReason: Equatable, Sendable {
     var userMessage: String {
         switch self {
         case .serverUnreachable: "분석 대기 중"
-        case .quotaExceeded: "분석할 수 있는 장수를 모두 사용했어요. 남은 캡처는 아직 검색되지 않아요."
+        case .quotaExceeded: "분석할 수 있는 한도를 모두 사용했어요."
         case .dailyBudgetExhausted: "오늘 분석할 수 있는 양을 모두 사용했어요. 내일 이어서 분석할게요."
         }
     }
