@@ -45,6 +45,10 @@ targets:
         # 실기기가 접속할 개발 서버(Mac)의 로컬 네트워크 이름. Mac에서 `scutil --get LocalHostName`
         # 으로 확인한다. IP 대신 이름을 쓰는 이유는 와이파이가 바뀌어도 그대로 동작하기 때문.
         CapPickDevServerHost: sim-ahyeon-ui-MacBookAir.local
+        # 시연 영상 녹화용(2026-10-18). 값이 있으면 Debug 빌드에서 이 이름의 사진 앨범에 든 스크린샷과
+        # 앱 설치 뒤에 새로 찍은 스크린샷만 불러온다(PhotosScreenshotLibrary.Scope.demo). 녹화가
+        # 끝나면 이 줄을 지우거나 값을 비우면 원래대로 전체 스크린샷을 본다.
+        CapPickDemoAlbumTitle: CapPick 시연
     dependencies:
       - package: GRDB
       - package: OnnxRuntime

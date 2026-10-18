@@ -28,9 +28,28 @@ struct AppEnvironment: Sendable {
         #endif
     }()
 
+    /// 시연 영상 녹화용 범위(Debug 빌드 + Info.plist의 CapPickDemoAlbumTitle이 있을 때만).
+    /// "새로 찍은 스크린샷"의 기준 시각은 이 설치에서 처음 실행한 때 — 앱을 지우면 UserDefaults도
+    /// 지워지므로 재설치하면 다시 그 시각부터 센다.
+    private static var screenshotScope: PhotosScreenshotLibrary.Scope {
+        #if DEBUG
+        if let title = Bundle.main.object(forInfoDictionaryKey: "CapPickDemoAlbumTitle") as? String,
+           !title.trimmingCharacters(in: .whitespaces).isEmpty {
+            let key = "demoFirstLaunchAt"
+            let since = UserDefaults.standard.object(forKey: key) as? Date ?? {
+                let now = Date()
+                UserDefaults.standard.set(now, forKey: key)
+                return now
+            }()
+            return .demo(albumTitle: title, newSince: since)
+        }
+        #endif
+        return .all
+    }
+
     static func live() throws -> AppEnvironment {
         let database = try AppDatabase.makeOnDisk()
-        let library = PhotosScreenshotLibrary()
+        let library = PhotosScreenshotLibrary(scope: screenshotScope)
         let captureStore = GRDBCaptureStore(database: database)
         let folderStore = GRDBFolderStore(database: database)
         let appStateStore = GRDBAppStateStore(database: database)

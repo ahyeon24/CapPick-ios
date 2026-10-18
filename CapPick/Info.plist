@@ -18,6 +18,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CapPickDemoAlbumTitle</key>
+	<string>CapPick 시연</string>
 	<key>CapPickDevServerHost</key>
 	<string>sim-ahyeon-ui-MacBookAir.local</string>
 	<key>NSAppTransportSecurity</key>
